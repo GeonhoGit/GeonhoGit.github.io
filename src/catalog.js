@@ -62,7 +62,7 @@ export const projects = [
     title: '고누', eyebrow: '전통 보드게임', category: 'web',
     description: '한국 전통 놀이 고누를 브라우저에서 즐길 수 있는 게임.',
     tags: ['JavaScript', '보드게임'], icon: '●', tone: 'blue',
-    preview: 'play/gonu/index.html',
+    preview: 'play/프로젝트 D/index.html',
   },
   {
     id: 'k-worker', repo: 'k--', branch: 'main1',

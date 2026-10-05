@@ -23,6 +23,10 @@ test('프로젝트 C는 던전 오토 레기온 실행 파일을 연다', () => 
   assertPreviewFolder('Dungeon-Auto-Legion', 'C');
 });
 
+test('프로젝트 D는 고누 실행 파일을 연다', () => {
+  assertPreviewFolder('Gonu', 'D');
+});
+
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
