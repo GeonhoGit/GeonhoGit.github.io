@@ -6,14 +6,14 @@ GeonhoGit의 공개 프로젝트 14개를 한곳에서 살펴보는 홈페이지
 
 - `src/catalog.js`: 프로젝트 이름, 설명, 분류, 저장소, 기본 브랜치, 실행 주소
 - `src/app.js`: 목록, 검색, 상세 화면, 실행 화면, 파일 탐색기
-- `play/`: GitHub Pages에서 실행할 수 있도록 복사하거나 빌드한 웹 작품
+- `play/`: GitHub Pages에서 실행할 수 있도록 복사하거나 빌드한 웹 작품. [A–H 이름표](play/README.md)를 참고하세요.
 - `style.css`: 홈페이지 디자인
 
 ## 새 프로젝트 추가
 
 1. GitHub에 프로젝트를 올리고 공개 저장소로 설정합니다.
 2. `src/catalog.js`의 `projects` 배열에 항목을 추가합니다. `id`, `title`, `description`, `repo`, `branch`, `category`, `tags` 등을 적습니다.
-3. 브라우저에서 실행할 수 있는 프로젝트라면 배포 가능한 정적 파일을 `play/<id>/`에 넣고 `preview: './play/<id>/index.html'`을 지정합니다. 빌드가 필요한 작품은 상대 경로(`./`)를 기준으로 빌드합니다.
+3. 브라우저에서 실행할 수 있는 프로젝트라면 다음 글자(`프로젝트 I`) 폴더에 배포 가능한 정적 파일을 넣고 `preview: 'play/프로젝트 I/index.html'`을 지정합니다. `play/README.md`의 이름표도 갱신합니다. 빌드가 필요한 작품은 상대 경로(`./`)를 기준으로 빌드합니다.
 4. 브라우저에서 실행할 수 없다면 `preview: null`로 두면 파일 보기가 기본 화면이 됩니다.
 5. 변경 사항을 `main` 브랜치에 푸시하면 GitHub Pages가 사이트를 갱신합니다.
 
