@@ -76,7 +76,7 @@ export const projects = [
     title: 'Web Game', eyebrow: '초기 웹 게임', category: 'web',
     description: 'HTML, CSS, JavaScript로 만든 초기 웹 게임 프로젝트.',
     tags: ['HTML', 'CSS', 'JavaScript'], icon: '▣', tone: 'pink',
-    preview: 'play/web-game/index.html',
+    preview: 'play/프로젝트 H/index.html',
   },
   {
     id: 'p-f', repo: 'P.F', branch: 'main',
