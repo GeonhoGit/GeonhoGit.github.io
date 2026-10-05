@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { projects } from '../src/catalog.js';
 import { defaultTab, filterProjects, initialFile, rawFileUrl } from '../src/model.js';
+
+function assertPreviewFolder(repo, letter) {
+  const project = projects.find(item => item.repo === repo);
+  const preview = `play/프로젝트 ${letter}/index.html`;
+  assert.equal(project.preview, preview);
+  assert.ok(existsSync(new URL(`../${preview}`, import.meta.url)), `${preview} must exist`);
+}
+
+test('프로젝트 A는 차곡냥 실행 파일을 연다', () => {
+  assertPreviewFolder('chagoknyang', 'A');
+});
 
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [

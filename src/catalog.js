@@ -11,7 +11,7 @@ export const projects = [
     title: '차곡냥', eyebrow: '고양이 퍼즐', category: 'web',
     description: '같은 고양이 네 마리를 한 상자에 모으는 아기자기한 퍼즐.',
     tags: ['HTML', '퍼즐', 'PWA'], icon: '🐈', tone: 'peach',
-    preview: 'play/chagoknyang/index.html', featured: true,
+    preview: 'play/프로젝트 A/index.html', featured: true,
   },
   {
     id: 'unforgotten-night', repo: 'unforgotten-night', branch: 'main',
