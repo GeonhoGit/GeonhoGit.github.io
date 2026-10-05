@@ -18,7 +18,7 @@ export const projects = [
     title: '지워지지 않은 밤', eyebrow: '데스크톱 추리', category: 'web',
     description: '중고 컴퓨터에 남은 기록을 조사하고 사건의 진상을 찾는 추리 게임.',
     tags: ['JavaScript', '추리', '스토리'], icon: '☾', tone: 'indigo',
-    preview: 'play/unforgotten-night/index.html', featured: true,
+    preview: 'play/프로젝트 G/index.html', featured: true,
   },
   {
     id: 'siwangjeon', repo: 'siwangjeon', branch: 'main',

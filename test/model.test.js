@@ -35,6 +35,10 @@ test('프로젝트 F는 작은 웹 실험들 실행 파일을 연다', () => {
   assertPreviewFolder('P.F', 'F');
 });
 
+test('프로젝트 G는 지워지지 않은 밤 실행 파일을 연다', () => {
+  assertPreviewFolder('unforgotten-night', 'G');
+});
+
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
