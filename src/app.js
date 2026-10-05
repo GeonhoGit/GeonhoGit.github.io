@@ -1,4 +1,4 @@
-import { projects } from './catalog.js';
+import { projects } from './catalog.js?v=2';
 import { defaultTab, filterProjects, githubFileUrl, initialFile, rawFileUrl } from './model.js';
 
 const root = document.querySelector('#app');
