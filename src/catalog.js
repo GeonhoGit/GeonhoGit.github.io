@@ -55,7 +55,7 @@ export const projects = [
     title: '던전 오토 레기온', eyebrow: '오토배틀러', category: 'web',
     description: '용병을 고용하고 진형을 꾸려 던전 끝까지 나아가는 웹 게임.',
     tags: ['JavaScript', '로그라이크', '게임'], icon: '⚔', tone: 'steel',
-    preview: 'play/dungeon-auto-legion/index.html',
+    preview: 'play/프로젝트 C/index.html',
   },
   {
     id: 'gonu', repo: 'Gonu', branch: 'main',

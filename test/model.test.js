@@ -19,6 +19,10 @@ test('프로젝트 B는 저주받은 유물 사냥꾼 실행 파일을 연다', 
   assertPreviewFolder('cursed-relic-hunter-3d', 'B');
 });
 
+test('프로젝트 C는 던전 오토 레기온 실행 파일을 연다', () => {
+  assertPreviewFolder('Dungeon-Auto-Legion', 'C');
+});
+
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
