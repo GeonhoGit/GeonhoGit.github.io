@@ -4,7 +4,7 @@ export const projects = [
     title: '저주받은 유물 사냥꾼', eyebrow: '3D FPS · 로그라이트', category: 'web',
     description: '유적을 탐험하고 유물을 모으며 세 지역의 보스에 도전하는 1인칭 게임.',
     tags: ['Three.js', 'TypeScript', '게임'], icon: '✦', tone: 'violet',
-    preview: 'play/cursed-relic-hunter-3d/index.html', featured: true,
+    preview: 'play/프로젝트 B/index.html', featured: true,
   },
   {
     id: 'chagoknyang', repo: 'chagoknyang', branch: 'main',
