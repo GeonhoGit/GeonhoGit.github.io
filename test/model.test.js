@@ -31,6 +31,10 @@ test('프로젝트 E는 K-직장인 퇴사 시뮬레이터 실행 파일을 연�
   assertPreviewFolder('k--', 'E');
 });
 
+test('프로젝트 F는 작은 웹 실험들 실행 파일을 연다', () => {
+  assertPreviewFolder('P.F', 'F');
+});
+
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',

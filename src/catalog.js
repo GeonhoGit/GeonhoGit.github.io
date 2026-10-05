@@ -83,7 +83,7 @@ export const projects = [
     title: '작은 웹 실험들', eyebrow: '미니 프로젝트 모음', category: 'experiment',
     description: '계산기, 룰렛, 박스 피하기 등 여러 작은 웹 작업을 모은 기록.',
     tags: ['HTML', 'JavaScript', '실험'], icon: '✳', tone: 'lavender',
-    preview: 'play/p-f/index.html',
+    preview: 'play/프로젝트 F/index.html',
   },
   {
     id: 'calculator-sample', repo: 'CalculatorSample', branch: 'master',
