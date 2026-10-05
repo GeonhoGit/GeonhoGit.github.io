@@ -1,0 +1,13 @@
+node_modules/
+rog/
+logs/
+.env
+.env.*
+*.log
+
+admin.html
+admin.css
+admin.js
+
+src/bot/
+src/rog/

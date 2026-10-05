@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-직장인 퇴사 시뮬레이터</title>
+    <!-- 구글 애드센스 스크립트 (본인의 클라이언트 ID로 변경하세요) -->
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5196833558159966" crossorigin="anonymous"></script>
+    <style>
+        /* 기본 스타일 및 다크 모드 테마 세팅 */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-green: #10b981;
+            --accent-blue: #3b82f6;
+            --accent-red: #ef4444;
+            --disabled: #334155;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            line-height: 1.5; /* 전체 줄 간격 넓혀서 글씨 가독성 향상 */
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* 커스텀 스크롤바 디자인 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: hidden; /* 파티클로 인한 가로 스크롤 흔들림 방지 */
+        }
+
+        /* 메인 컨테이너 */
+        .game-container {
+            background-color: var(--card-bg);
+            width: 100%;
+            max-width: 1600px; /* 줄바꿈 방지 및 더 넓은 공간 활용을 위해 최대 너비 확장 */
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            position: relative;
+            z-index: 10; /* 파티클이 게임 화면 뒤로 가도록 컨테이너 우선순위 높임 */
+        }
+
+        /* 상단 전광판 */
+        .header {
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .header h1 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: -0.05em;
+        }
+        
+        .mute-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            opacity: 0.8;
+        }
+        .mute-btn:hover {
+            transform: scale(1.1);
+            opacity: 1;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .status-panel {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            white-space: nowrap;
+        }
+
+        .money-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .money-amount {
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--accent-green);
+            margin-bottom: 4px;
+            text-shadow: 0 0 15px rgba(16, 185, 129, 0.3); /* 메인 금액에 은은한 네온 효과 추가 */
+        }
+
+        .cps-amount {
+            font-size: 0.9rem;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        /* 추가: 진행도 바(퇴사 게이지) 스타일 */
+        .progress-container {
+            width: 100%;
+            height: 12px;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            margin-top: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* 중앙 노트북 버튼 영역 */
+        .click-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 0;
+        }
+
+        .laptop-btn {
+            background: linear-gradient(145deg, #22314d, #1a2435);
+            border: none;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 7px 7px 15px #0a0f1c, -7px -7px 15px #263552;
+            transition: transform 0.05s ease, box-shadow 0.1s ease;
+            position: relative;
+        }
+
+        .laptop-btn:active {
+            transform: scale(0.95);
+            box-shadow: 3px 3px 8px #0a0f1c, -3px -3px 8px #263552;
+        }
+
+        .laptop-icon {
+            font-size: 4.5rem;
+            margin-bottom: 5px;
+        }
+
+        .click-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        /* 하단 상점(업그레이드) 영역 */
+        .shop-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .shop-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* 제목과 내용 분리선 추가 */
+            white-space: nowrap;
+        }
+
+        .shop-item {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 14px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        /* 상점 아이템에 마우스를 올렸을 때 강조 효과 추가 */
+        .shop-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .item-name {
+            font-size: 1.05rem; /* 아이템 이름 폰트 크기 살짝 확대 */
+            font-weight: 700;
+        }
+
+        .item-effect {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .item-count {
+            font-size: 0.85rem;
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .buy-btn {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            min-width: 100px;
+            text-align: center;
+            white-space: nowrap; /* 버튼 텍스트 줄바꿈 강제 방지 */
+        }
+
+        .buy-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+        }
+
+        .buy-btn:disabled {
+            background-color: var(--disabled);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+        /* 주식 거래소 전용 스타일 */
+        .stock-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .stock-chart {
+            margin-top: 6px;
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        /* 시스템 유틸리티 버튼 */
+        .utils {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .hack-btn {
+            background-color: #7c3aed;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .hack-btn:hover:not(:disabled) { filter: brightness(1.1); }
+        .hack-btn:disabled { background-color: var(--disabled); cursor: not-allowed; }
+
+        .slot-btn {
+            background-color: #f59e0b; /* 주황색 톤 */
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .slot-btn:hover:not(:disabled) { filter: brightness(1.1); }
+        .slot-btn:disabled { background-color: var(--disabled); cursor: not-allowed; }
+
+        .slot-machine {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #000;
+            border-radius: 12px;
+            border: 2px solid #f59e0b;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .slot-reel {
+            width: 70px;
+            height: 80px;
+            background: #fff;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3.5rem;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5), 0 4px 0 #ccc;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            line-height: 1;
+        }
+
+        /* 슬롯머신 금액 입력칸 화살표(스피너) 제거 */
+        #slot-cost-input::-webkit-outer-spin-button,
+        #slot-cost-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        #slot-cost-input {
+            -moz-appearance: textfield; /* Firefox 호환 */
+        }
+
+        .reset-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .reset-btn:hover {
+            color: var(--accent-red);
+        }
+
+        /* 플로팅 텍스트 애니메이션 */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1.5); }
+        }
+        .floating-text {
+            position: absolute;
+            color: var(--accent-green);
+            font-weight: 800;
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 100;
+        }
+
+        /* 엔딩(클리어) 관련 스타일 */
+        .ending-btn-container {
+            display: none;
+            margin-top: 10px;
+        }
+        
+        .ending-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+            animation: pulse 1.5s infinite;
+            transition: transform 0.1s ease;
+        }
+
+        .ending-btn:active {
+            transform: scale(0.98);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.02); box-shadow: 0 4px 25px rgba(239, 68, 68, 0.7); }
+            100% { transform: scale(1); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+        }
+
+        .ending-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            z-index: 1000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+        .ending-modal-content h2 { font-size: 2.8rem; color: var(--accent-red); margin-bottom: 20px; }
+        .ending-modal-content p { font-size: 1.2rem; color: var(--text-main); margin-bottom: 40px; line-height: 1.6; }
+        
+        /* 돌발 이벤트(결재 서류) 스타일 */
+        .bonus-item {
+            position: fixed;
+            font-size: 3.5rem;
+            cursor: pointer;
+            z-index: 1000;
+            animation: flyAcross 5s linear forwards;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4));
+        }
+        .bonus-item:active {
+            transform: scale(0.8);
+        }
+        @keyframes flyAcross {
+            0% { left: -100px; transform: rotate(-15deg); }
+            50% { transform: rotate(15deg); }
+            100% { left: 105vw; transform: rotate(-15deg); }
+        }
+
+        /* 자동 저장 알림 스타일 */
+        .save-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: var(--accent-green);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            z-index: 2000;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .save-notification.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 레이아웃 분리 스타일 (좌우 배치) */
+        .game-layout {
+            display: flex;
+            gap: 30px; /* 각 단(컬럼) 사이의 여백을 더 넓게 벌림 */
+            width: 100%;
+        }
+        .left-column, .main-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-height: calc(100vh - 180px); /* 화면 높이에 맞춰 내부 스크롤 활성화 */
+            overflow-y: auto;
+            padding-right: 8px; /* 스크롤바 영역 여백 확보 */
+        }
+        .side-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            max-height: calc(100vh - 180px);
+        }
+        #stock-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+        /* 모바일 등 좁은 화면에서는 다시 위아래로 쌓이도록 설정 */
+        @media (max-width: 768px) {
+            .game-layout {
+                flex-direction: column;
+            }
+            .left-column, .main-column, .side-column {
+                max-height: none; /* 모바일에서는 전체 스크롤 허용 */
+                overflow-y: visible;
+                padding-right: 0;
+            }
+            #stock-panel {
+                flex: none;
+                overflow-y: visible;
+                padding-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <h1>💻 K-직장인 퇴사 시뮬레이터 <button id="btn-mute" class="mute-btn" onclick="toggleMute()" title="효과음 켜기/끄기">🔊</button></h1>
+            <p>모니터를 부수고 당당하게 사표를 던지는 그날까지</p>
+        </div>
+
+        <div class="game-layout">
+            <!-- 야매 업무 툴 상점 영역 (좌측) -->
+            <div class="left-column">
+                <div class="shop-panel">
+                    <div class="shop-title">🛒 야매 업무 툴 (업그레이드)</div>
+                    
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">⌨️ 기계식 키보드 <span class="item-count" id="item-keyboard-count">(0개)</span></div>
+                            <div class="item-effect">클릭 수입 +10원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-keyboard" onclick="buyItem('keyboard')">500원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🖥️ 듀얼 모니터 <span class="item-count" id="item-dual-monitor-count">(0개)</span></div>
+                            <div class="item-effect">클릭 수입 +30원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-dual-monitor" onclick="buyItem('dualMonitor')">2,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🖱️ 매크로 마우스 <span class="item-count" id="item-mouse-count">(0개)</span></div>
+                            <div class="item-effect">초당 수입 +5원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-mouse" onclick="buyItem('mouse')">100원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">☕ 커피 수혈 <span class="item-count" id="item-coffee-count">(0잔)</span></div>
+                            <div class="item-effect">초당 수입 +15원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-coffee" onclick="buyItem('coffee')">300원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🤖 AI 대필 프로그램 <span class="item-count" id="item-ai-count">(0개)</span></div>
+                            <div class="item-effect">초당 수입 +50원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-ai" onclick="buyItem('ai')">1,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">👶 신입사원 채용 <span class="item-count" id="item-newbie-count">(0명)</span></div>
+                            <div class="item-effect">초당 수입 +200원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-newbie" onclick="buyItem('newbie')">5,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">👔 팀장 진급 <span class="item-count" id="item-leader-count">(0번)</span></div>
+                            <div class="item-effect">초당 수입 +2,500원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-leader" onclick="buyItem('leader')">50,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">💼 업무 하청업체 <span class="item-count" id="item-outsource-count">(0개)</span></div>
+                            <div class="item-effect">초당 수입 +15,000원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-outsource" onclick="buyItem('outsource')">200,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🔌 회사 전기로 채굴기 돌리기<span class="item-count" id="item-miner-count">(0개)</span></div>
+                            <div class="item-effect">초당 수입 +80,000원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-miner" onclick="buyItem('miner')">1,500,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🤝 사내정치 만렙 <span class="item-count" id="item-politics-count">(0번)</span></div>
+                            <div class="item-effect">초당 수입 +500,000원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-politics" onclick="buyItem('politics')">10,000,000원</button>
+                    </div>
+
+                    <div class="shop-item">
+                        <div class="item-info">
+                            <div class="item-name">🕵️ 사장님 약점 파일 <span class="item-count" id="item-weakness-count">(0개)</span></div>
+                            <div class="item-effect">초당 수입 +5,000,000원</div>
+                        </div>
+                        <button class="buy-btn" id="btn-buy-weakness" onclick="buyItem('weakness')">100,000,000원</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 메인 게임 영역 (중앙) -->
+            <div class="main-column">
+        <div class="status-panel">
+            <div class="money-label">현재 모은 퇴사 자금 (목표 금액 : 100억 원)</div>
+            <div class="money-amount" id="money-display">0원 / 100억 원</div>
+            <div class="cps-amount" id="cps-display">초당 자동 수입: 0원</div>
+            <div id="rebirth-display" style="font-size: 0.85rem; color: var(--accent-red); font-weight: 600; margin-top: 6px; display: none;">🔄 경력직 보너스: 클릭 수입 +0%, 자동 수입 +0%</div>
+            
+            <div class="progress-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; text-align: right;" id="progress-text">목표 달성률: 0%</div>
+        </div>
+
+        <div class="click-area">
+            <button class="laptop-btn" id="laptop-target" onclick="handleTargetClick(event)">
+                <div class="laptop-icon">💻</div>
+                <div class="click-hint" id="click-hint-display">코딩 노가다 (+10원)</div>
+            </button>
+        </div>
+
+        <div class="utils">
+            <button class="hack-btn" id="btn-hack" onclick="openHackModal()">🔒 사내 망 해킹 (미니게임)</button>
+            <button class="slot-btn" id="btn-slot" onclick="openSlotModal()">🎰 슬롯머신 (미니게임)</button>
+            <button class="reset-btn" onclick="resetGame()">인생 초기화 (데이터 리셋)</button>
+        </div>
+
+                <div class="ending-btn-container" id="ending-btn-container">
+                    <button class="ending-btn" onclick="throwResignation()">🔥 사장실에 사표 던지기! 🔥</button>
+                </div>
+
+                <!-- 실시간 증권 뉴스 전광판 (중앙 이동) -->
+                <div class="shop-panel" id="news-panel">
+                    <div class="shop-title">📰 실시간 증권 뉴스</div>
+                    <div id="stock-news-display" style="font-size: 0.9rem; font-weight: bold; text-align: center; padding: 12px 8px; background: rgba(0,0,0,0.3); border-radius: 8px; word-break: keep-all; color: var(--text-muted);">
+                        현재 시장은 잠잠합니다...
+                    </div>
+                </div>
+
+            <!-- 구글 애드센스 광고 영역 -->
+            <div class="shop-panel" id="adsense-panel" hidden aria-hidden="true">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-align: left; margin-bottom: -4px;">스폰서 링크</div>
+                <div style="background: rgba(0, 0, 0, 0.2); border-radius: 8px; padding: 10px; text-align: center; height: 110px; overflow: hidden; display: flex; justify-content: center; align-items: center;">
+                    <!-- 아래의 data-ad-client와 data-ad-slot을 본인의 애드센스 코드로 교체하세요 -->
+                    <ins id="adsense-slot"
+                         class="adsbygoogle"
+                         style="display:inline-block; width:100%; height:90px;"
+                         data-ad-client="ca-pub-5196833558159966"
+                         data-ad-slot="YYYYYYYYYY"></ins>
+                </div>
+            </div>
+            </div> <!-- 메인 게임 영역(중앙) 끝 -->
+
+            <!-- 주식/코인 거래소 영역 (우측) -->
+            <div class="side-column">
+                <div class="shop-panel" id="lottery-panel">
+                    <div class="shop-title">🎰 스피또 (인생역전 복권)</div>
+                    <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="item-name">당첨금: 최대 1,000만원!</div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="buy-btn" id="btn-buy-lottery-1" onclick="buyLottery(1)" style="min-width: unset; padding: 6px 10px; font-size: 0.8rem; background-color: var(--accent-green);">1장 (5천원)</button>
+                                <button class="buy-btn" id="btn-buy-lottery-10" onclick="buyLottery(10)" style="min-width: unset; padding: 6px 10px; font-size: 0.8rem; background-color: #059669;">10장 연속</button>
+                                <button class="buy-btn" id="btn-buy-lottery-100" onclick="buyLottery(100)" style="min-width: unset; padding: 6px 10px; font-size: 0.8rem; background-color: #047857;">100장 묶음</button>
+                            </div>
+                        </div>
+                        <div id="lottery-result" style="text-align: center; font-weight: bold; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; color: var(--text-muted);">
+                            동전으로 긁어 인생 역전을 노려보세요!
+                        </div>
+                    </div>
+                </div>
+
+                <div class="shop-panel" id="stock-panel">
+            <div class="shop-title">📉 K-거래소 (하이리스크 노리턴)</div>
+            
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🐶 진돗개코인</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-doge-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-doge-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-doge-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">500원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-doge-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-doge" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-doge" onclick="buyStock('doge', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-doge" onclick="buyStock('doge', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-doge" onclick="buyStock('doge', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-doge" onclick="buyStock('doge', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-doge" onclick="buyStockPercent('doge', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-doge" onclick="buyStockPercent('doge', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-doge" onclick="sellStock('doge', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-doge" onclick="sellAllStock('doge')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🏢 상성전자</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-samsung-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-samsung-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-samsung-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">50,000원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-samsung-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-samsung" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-samsung" onclick="buyStock('samsung', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-samsung" onclick="buyStock('samsung', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-samsung" onclick="buyStock('samsung', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-samsung" onclick="buyStock('samsung', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-samsung" onclick="buyStockPercent('samsung', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-samsung" onclick="buyStockPercent('samsung', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-samsung" onclick="sellStock('samsung', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-samsung" onclick="sellAllStock('samsung')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🚀 화성갈끄니까</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-tesla-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-tesla-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-tesla-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">200,000원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-tesla-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-tesla" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-tesla" onclick="buyStock('tesla', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-tesla" onclick="buyStock('tesla', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-tesla" onclick="buyStock('tesla', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-tesla" onclick="buyStock('tesla', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-tesla" onclick="buyStockPercent('tesla', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-tesla" onclick="buyStockPercent('tesla', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-tesla" onclick="sellStock('tesla', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-tesla" onclick="sellAllStock('tesla')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🤖 갓비디아</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-nvidia-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-nvidia-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-nvidia-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">150,000원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-nvidia-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-nvidia" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-nvidia" onclick="buyStock('nvidia', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-nvidia" onclick="buyStock('nvidia', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-nvidia" onclick="buyStock('nvidia', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-nvidia" onclick="buyStock('nvidia', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-nvidia" onclick="buyStockPercent('nvidia', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-nvidia" onclick="buyStockPercent('nvidia', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-nvidia" onclick="sellStock('nvidia', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-nvidia" onclick="sellAllStock('nvidia')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🍎 사과전자</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-apple-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-apple-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-apple-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">180,000원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-apple-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-apple" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-apple" onclick="buyStock('apple', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-apple" onclick="buyStock('apple', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-apple" onclick="buyStock('apple', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-apple" onclick="buyStock('apple', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-apple" onclick="buyStockPercent('apple', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-apple" onclick="buyStockPercent('apple', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-apple" onclick="sellStock('apple', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-apple" onclick="sellAllStock('apple')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="shop-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div class="item-info">
+                        <div class="item-name">🍫 까까오</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0;" id="stock-kakao-avg">평단가: 0원</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px;" id="stock-kakao-profit">손익: 0원</div>
+                        <div class="item-effect" id="stock-kakao-price" style="font-weight: bold; transition: color 0.3s; font-size: 1.1rem;">40,000원</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                        <span class="item-count" id="stock-kakao-count" style="font-size: 0.95rem; margin-top: 2px;">(0주)</span>
+                        <canvas id="chart-kakao" class="stock-chart" width="100" height="28"></canvas>
+                    </div>
+                </div>
+                <div class="stock-actions" style="flex-direction: column; gap: 6px;">
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-1-kakao" onclick="buyStock('kakao', 1)">1주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-5-kakao" onclick="buyStock('kakao', 5)">5주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-10-kakao" onclick="buyStock('kakao', 10)">10주</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem;" id="btn-buy-20-kakao" onclick="buyStock('kakao', 20)">20주</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-green);" id="btn-buy-half-kakao" onclick="buyStockPercent('kakao', 0.5)">50%</button>
+                        <button class="buy-btn" style="flex: 1.2; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #059669;" id="btn-buy-full-kakao" onclick="buyStockPercent('kakao', 1)">풀매수</button>
+                    </div>
+                    <div style="display: flex; gap: 4px; width: 100%;">
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: var(--accent-red);" id="btn-sell-1-kakao" onclick="sellStock('kakao', 1)">1주 매도</button>
+                        <button class="buy-btn" style="flex: 1; min-width: 0; padding: 6px 0; font-size: 0.75rem; background-color: #7c3aed;" id="btn-sell-all-kakao" onclick="sellAllStock('kakao')">전량 매도</button>
+                    </div>
+                </div>
+            </div>
+            </div>
+            </div> <!-- 주식 거래소 영역 끝 -->
+        </div> <!-- game-layout 끝 -->
+
+        <!-- 구글 애드센스 봇을 위한 텍스트 콘텐츠 (게임 가이드 및 스토리) -->
+        <div class="game-description" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; margin-top: 24px; color: var(--text-muted); font-size: 0.95rem;">
+            <h2 style="color: var(--text-main); font-size: 1.3rem; margin-bottom: 12px;">💻 K-직장인 퇴사 시뮬레이터 게임 가이드 및 세계관</h2>
+            <p style="margin-bottom: 12px;"><strong>"모니터를 부수고 당당하게 사표를 던지는 그날까지!"</strong></p>
+            <p style="margin-bottom: 12px;">이 게임은 매일 반복되는 야근과 스트레스 속에서 목표 퇴사 자금 <strong>100억 원</strong>을 모아 사장님 면전에 사표를 던지는 것을 목표로 하는 방치형/클리커 시뮬레이션 웹 게임입니다. 여러분은 신입사원으로 시작하여 다양한 야매 업무 툴과 사내 정치를 통해 초당 수입(CPS)을 극대화해 나가야 합니다.</p>
+            
+            <h3 style="color: var(--text-main); font-size: 1.1rem; margin-top: 16px; margin-bottom: 8px;">🎮 주요 시스템 및 공략 안내</h3>
+            <ul style="padding-left: 20px; margin-bottom: 12px; line-height: 1.6;">
+                <li style="margin-bottom: 6px;"><strong>코딩 노가다 & 업무 툴:</strong> 중앙의 노트북을 클릭해 수동으로 자금을 모으고, '매크로 마우스', 'AI 대필 프로그램', '사장님 약점 파일' 등을 업그레이드하여 자동 수입을 늘리세요.</li>
+                <li style="margin-bottom: 6px;"><strong>K-거래소 주식 투자 (하이리스크 노리턴):</strong> 상성전자, 화성갈끄니까 등 변동성 높은 주식에 투자하세요. 실시간 돌발 뉴스에 따라 주가가 폭등하거나 상장폐지될 수 있습니다.</li>
+                <li style="margin-bottom: 6px;"><strong>사내 해킹 & 미니게임:</strong> 3자리 비밀번호를 맞추는 숫자 야구 미니게임, 월급루팡 슬롯머신 등으로 비자금을 획득해 일확천금을 노리세요.</li>
+                <li style="margin-bottom: 6px;"><strong>돌발 결재 서류 이벤트:</strong> 화면을 가로지르는 결재 서류를 클릭해 보너스를 받으세요. 단, 함정(실수) 서류를 누르면 시말서를 쓰고 자산이 차감되니 주의가 필요합니다.</li>
+                <li><strong>환생(Prestige) 시스템:</strong> 100억 원을 달성하고 사표를 던지면, 더 높은 수익 배율(경력직 보너스)을 안고 새로운 직장에서 다시 시작할 수 있습니다.</li>
+            </ul>
+            <p>이 게임은 HTML, CSS, JavaScript로 제작된 웹 브라우저 기반 방치형 클리커 게임입니다. 브라우저를 닫아도 마지막 접속 시간을 기억하여 일정량의 오프라인 보상이 주어집니다. 완벽한 퇴사를 위해 지금 바로 자산 증식을 시작해 보세요!</p>
+        </div>
+    </div>
+
+    <!-- 엔딩 축하 모달 화면 -->
+    <div class="ending-modal" id="ending-modal">
+        <div class="ending-modal-content">
+            <h2>🎉 퇴사를 축하합니다! 🎉</h2>
+            <p>드디어 목표 자금 100억 원을 모았습니다.<br>당신은 사장님 면전에 사표를 날리고 자유의 몸이 되었습니다!<br>🎇 🎆 🎇</p>
+            <p id="ending-rebirth-info" style="font-size: 1.1rem; color: var(--accent-green); font-weight: bold; margin-bottom: 20px;"></p>
+            <button class="buy-btn" style="font-size: 1.1rem; padding: 15px 30px;" onclick="closeEndingAndReset()">새로운 직장 찾기 (환생)</button>
+        </div>
+    </div>
+
+    <!-- 해킹 미니게임 모달 -->
+    <div class="ending-modal" id="hack-modal">
+        <div class="ending-modal-content" style="max-width: 400px; background-color: #0f172a; border: 2px solid #10b981;">
+            <h2 style="font-size: 1.8rem; color: #10b981; margin-bottom: 10px;">💻 사내 서버 해킹</h2>
+            <p style="font-size: 0.95rem; margin-bottom: 15px; color: var(--text-muted);">중복 없는 3자리 비밀번호(0~9)를 맞춰<br>비자금을 탈취하세요! (남은 기회: <span id="hack-chances" style="color:#ef4444; font-weight:bold;">10</span>번)</p>
+            
+            <div id="hack-log" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; margin-bottom: 15px; font-family: 'Courier New', monospace; text-align: left; font-size: 0.95rem; color: #10b981; border: 1px solid #334155;"></div>
+            
+            <input type="text" id="hack-input" maxlength="3" placeholder="3자리 숫자 입력" style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #10b981; background: #000; color: #10b981; text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; letter-spacing: 0.5em;" onkeypress="if(event.key === 'Enter') submitHack()">
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="buy-btn" style="flex: 1; background-color: #10b981; color: #000;" onclick="submitHack()">해킹 시도</button>
+                <button class="buy-btn" style="flex: 1; background-color: #ef4444;" onclick="closeHackModal()">포기하기</button>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px; text-align: left;">
+                * S (Strike): 숫자와 자리가 모두 일치<br>
+                * B (Ball): 숫자는 맞지만 자리가 다름
+            </div>
+        </div>
+    </div>
+
+    <!-- 슬롯머신 미니게임 모달 -->
+    <div class="ending-modal" id="slot-modal">
+        <div class="ending-modal-content" style="max-width: 400px; background-color: #0f172a; border: 2px solid #f59e0b;">
+            <h2 style="font-size: 1.8rem; color: #f59e0b; margin-bottom: 10px;">🎰 월급루팡 슬롯머신</h2>
+            <div style="margin-bottom: 15px;">
+                <div style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 8px;">
+                    판돈: <input type="number" id="slot-cost-input" min="1" value="10000" oninput="checkSlotCost()" style="width: 120px; padding: 6px; border-radius: 6px; border: 1px solid #f59e0b; background: #1e293b; color: var(--accent-red); font-weight: bold; font-size: 1rem; text-align: center; outline: none;"> 원
+                </div>
+                <div style="display: flex; justify-content: center; gap: 6px; margin-bottom: 8px;">
+                    <button class="buy-btn" id="btn-slot-add-1m" style="min-width: unset; padding: 4px 12px; font-size: 0.8rem; background-color: #3b82f6;" onclick="addSlotCost(10000)">+1만</button>
+                    <button class="buy-btn" id="btn-slot-add-10m" style="min-width: unset; padding: 4px 12px; font-size: 0.8rem; background-color: #3b82f6;" onclick="addSlotCost(100000)">+10만</button>
+                    <button class="buy-btn" id="btn-slot-add-max" style="min-width: unset; padding: 4px 12px; font-size: 0.8rem; background-color: #ef4444;" onclick="addSlotCost('max')">전액 배팅</button>
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">일확천금의 기회를 노려보세요!</div>
+            </div>
+            
+            <div class="slot-machine">
+                <div class="slot-reel" id="reel1">🍒</div>
+                <div class="slot-reel" id="reel2">🍋</div>
+                <div class="slot-reel" id="reel3">🍉</div>
+            </div>
+            
+            <div id="slot-result" style="height: 24px; font-weight: bold; margin-bottom: 15px; color: var(--text-muted);">행운을 빕니다!</div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="buy-btn" id="btn-spin" style="flex: 2; background-color: #f59e0b; color: #fff; font-size: 1.1rem;" onclick="spinSlot()">당기기!</button>
+                <button class="buy-btn" id="btn-slot-close" style="flex: 1; background-color: #ef4444;" onclick="closeSlotModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 게임 상태 데이터 초기값 정의
+        let gameState = {
+            money: 0,
+            mouseCount: 0,
+            mouseCost: 100,
+            coffeeCount: 0,
+            coffeeCost: 300,
+            aiCount: 0,
+            aiCost: 1000,
+            keyboardCount: 0,
+            keyboardCost: 500,
+            dualMonitorCount: 0,
+            dualMonitorCost: 2000,
+            newbieCount: 0,
+            newbieCost: 5000,
+            leaderCount: 0,
+            leaderCost: 50000,
+            outsourceCount: 0,
+            outsourceCost: 200000,
+            minerCount: 0,
+            minerCost: 1500000,
+            politicsCount: 0,
+            politicsCost: 10000000,
+            weaknessCount: 0,
+            weaknessCost: 100000000,
+            lastSaveTime: Date.now(), // 추가: 마지막 접속 시간 기록
+            rebirthCount: 0, // 환생 횟수
+            stocks: {
+                samsung: { shares: 0, price: 50000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(50000) },
+                tesla: { shares: 0, price: 200000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(200000) },
+                nvidia: { shares: 0, price: 150000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(150000) },
+                doge: { shares: 0, price: 500, avgPrice: 0, totalInvested: 0, history: Array(20).fill(500) },
+                apple: { shares: 0, price: 180000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(180000) },
+                kakao: { shares: 0, price: 40000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(40000) }
+            }
+        };
+
+        // 常數 데이터 정의
+        const CLICK_POWER = 10;
+        const KEYBOARD_POWER = 10;
+        const DUAL_MONITOR_POWER = 30;
+        const COFFEE_CPS = 15;
+        const MOUSE_CPS = 5;
+        const AI_CPS = 50;
+        const NEWBIE_CPS = 200;
+        const LEADER_CPS = 2500;
+        const OUTSOURCE_CPS = 15000;
+        const MINER_CPS = 80000;
+        const POLITICS_CPS = 500000;
+        const WEAKNESS_CPS = 5000000;
+        const GOAL_AMOUNT = 10000000000; // 100억 원
+        const LOTTERY_COST = 5000; // 복권 1장 가격
+        
+        // 상점 아이템 UI 업데이트용 데이터 (전역으로 분리하여 성능 최적화)
+        const SHOP_ITEMS = [
+            { key: 'keyboard', id: 'keyboard', unit: '개' },
+            { key: 'dualMonitor', id: 'dual-monitor', unit: '개' },
+            { key: 'mouse', id: 'mouse', unit: '개' },
+            { key: 'coffee', id: 'coffee', unit: '잔' },
+            { key: 'ai', id: 'ai', unit: '개' },
+            { key: 'newbie', id: 'newbie', unit: '명' },
+            { key: 'leader', id: 'leader', unit: '번' },
+            { key: 'outsource', id: 'outsource', unit: '개' },
+            { key: 'miner', id: 'miner', unit: '개' },
+            { key: 'politics', id: 'politics', unit: '번' },
+            { key: 'weakness', id: 'weakness', unit: '개' }
+        ];
+
+        // 주식 종목 기초 데이터 정의 (이름, 기본가, 가격 변동률)
+        const STOCK_INFO = {
+            samsung: { name: "상성전자", basePrice: 50000, volatility: 0.05 },
+            tesla: { name: "화성갈끄니까", basePrice: 200000, volatility: 0.15 },
+            nvidia: { name: "갓비디아", basePrice: 150000, volatility: 0.12 },
+            doge: { name: "진돗개코인", basePrice: 500, volatility: 0.35 },
+            apple: { name: "사과전자", basePrice: 180000, volatility: 0.07 },
+            kakao: { name: "까까오", basePrice: 40000, volatility: 0.14 }
+        };
+
+        // 돌발 뉴스 데이터 정의 (multi: 주가에 곱해질 최소~최대 배율)
+        const STOCK_NEWS = {
+            samsung: [
+                { text: "상성전자, 외계인 고문 증거 발견! 주가 폭등!", type: "positive", multi: [1.3, 1.8] },
+                { text: "상성전자, 역대급 어닝 서프라이즈 달성!", type: "positive", multi: [1.2, 1.5] },
+                { text: "상성전자 공장 정전 사태 발생! 주가 폭락!", type: "negative", multi: [0.5, 0.8] },
+                { text: "상성전자, 경쟁사에 점유율 밀려... 하한가 직행!", type: "negative", multi: [0.6, 0.85] }
+            ],
+            tesla: [
+                { text: "머스크 일론 돌발 트윗: '화성 진짜 간다' 떡상!", type: "positive", multi: [1.5, 2.5] },
+                { text: "자율주행 10단계 완벽 성공! 주가 수직 상승!", type: "positive", multi: [1.4, 2.0] },
+                { text: "머스크 일론, 생방송 중 기행 논란... 주가 떡락!", type: "negative", multi: [0.3, 0.7] },
+                { text: "화성 탐사선 발사 1초 만에 공중 분해!", type: "negative", multi: [0.4, 0.6] }
+            ],
+            nvidia: [
+                { text: "갓비디아, 차세대 AI 반도체 발표! 시장 지배력 강화!", type: "positive", multi: [1.3, 1.8] },
+                { text: "갓비디아 CEO 'AI의 미래는 밝다' 주가 훈풍!", type: "positive", multi: [1.2, 1.5] },
+                { text: "갓비디아, 반독점 조사 착수 소식에 급락!", type: "negative", multi: [0.6, 0.8] },
+                { text: "AI 거품론 확산... 갓비디아 직격탄!", type: "negative", multi: [0.5, 0.75] }
+            ],
+            doge: [
+                { text: "머스크 일론: '진돗개코인으로 전기차 살 수 있다' 폭등!", type: "positive", multi: [2.0, 5.0] },
+                { text: "진돗개코인, 글로벌 화폐 채택 찌라시 확산!", type: "positive", multi: [1.8, 3.0] },
+                { text: "머스크 일론: '진돗개코인은 사실 농담이었다' 대폭락!", type: "negative", multi: [0.1, 0.5] },
+                { text: "진돗개코인 메인 개발자 전원 잠적... 상장폐지 위기!", type: "negative", multi: [0.05, 0.3] }
+            ],
+            apple: [
+                { text: "사과전자, 신형 폰 디자인 재탕 논란... 주가 하락!", type: "negative", multi: [0.7, 0.9] },
+                { text: "사과전자, 자체 AI 탑재 소식에 주가 반등!", type: "positive", multi: [1.1, 1.4] },
+                { text: "사과전자, 부품 수급 차질로 생산 지연 우려", type: "negative", multi: [0.6, 0.85] },
+                { text: "사과전자, 공간 컴퓨팅 기기 대박 조짐! 기대감 상승", type: "positive", multi: [1.2, 1.6] }
+            ],
+            kakao: [
+                { text: "까까오, 문어발식 계열사 확장 비판에 주가 철퇴!", type: "negative", multi: [0.4, 0.7] },
+                { text: "전국 까까오톡 먹통 사태 발생! 신뢰도 급락!", type: "negative", multi: [0.3, 0.6] },
+                { text: "까까오뱅크, 해외 파트너십 성공 소식에 환호!", type: "positive", multi: [1.2, 1.8] },
+                { text: "까까오, AI 플랫폼 전면 개편 선언! 시장 반응 긍정적", type: "positive", multi: [1.1, 1.5] }
+            ]
+        };
+
+        // Web Audio API를 활용한 효과음(타건음) 생성 함수
+        let audioCtx;
+        function playTypingSound() {
+            if (gameState.isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime); // 시작 음높이
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05); // 빠르게 음높이 하락
+
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); // 볼륨
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05); // 빠르게 볼륨 감소 (타건음 느낌)
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        // 아이템 구매 효과음(띠링!) 생성 함수
+        function playBuySound() {
+            if (gameState.isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'sine'; // 맑은 소리를 위해 사인파 사용
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime); // 첫 번째 음 (A5)
+            osc.frequency.setValueAtTime(1318, audioCtx.currentTime + 0.08); // 두 번째 음 (E6)으로 빠르게 변환시켜 '띠링' 느낌 구현
+
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); // 볼륨
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3); // 부드러운 페이드아웃
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // 보너스 획득 효과음(빰빰빰!) 생성 함수
+        function playBonusSound() {
+            if (gameState.isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'square'; // 레트로 오락실 느낌의 사각파(Square wave)
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // 첫 번째 음 (C5)
+            osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // 두 번째 음 (E5)
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.2); // 세 번째 음 (C6)
+
+            gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime); // 볼륨 설정
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6); // 서서히 감소 (페이드아웃)
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.6);
+        }
+
+        // 엔딩 팡파르 효과음 생성 함수
+        function playFanfareSound() {
+            if (gameState.isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // 빰-빰-빰-빠아암~ (C5-C5-C5-G5)
+            const notes = [
+                { freq: 523.25, time: 0, duration: 0.15 },    // 첫 번째 음
+                { freq: 523.25, time: 0.15, duration: 0.15 }, // 두 번째 음
+                { freq: 523.25, time: 0.30, duration: 0.15 }, // 세 번째 음
+                { freq: 783.99, time: 0.45, duration: 0.8 }   // 마지막 긴 하이라이트 음
+            ];
+
+            const now = audioCtx.currentTime;
+            notes.forEach(note => {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                osc.type = 'square'; // 레트로 팡파르 느낌
+                osc.frequency.value = note.freq;
+                gainNode.gain.setValueAtTime(0.2, now + note.time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + note.time + note.duration - 0.01);
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start(now + note.time);
+                osc.stop(now + note.time + note.duration);
+            });
+        }
+
+        // 뉴스 이벤트 효과음 생성 함수
+        function playNewsSound(isPositive) {
+            if (gameState.isMuted) return;
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = isPositive ? 'sine' : 'sawtooth';
+            osc.frequency.setValueAtTime(isPositive ? 600 : 400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(isPositive ? 1200 : 100, audioCtx.currentTime + 0.4);
+
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        // 복권 꽝 효과음 생성 함수
+        function playFailSound() {
+            if (gameState.isMuted) return;
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // 2. 로컬스토리지에서 기존 세이브 데이터 로드
+        function loadGame() {
+            const savedData = localStorage.getItem('k_worker_sim_save');
+            if (savedData) {
+                try {
+                const parsedData = JSON.parse(savedData);
+                // 구버전 세이브 호환 처리: 기본값에 저장된 데이터를 안전하게 병합
+                gameState = { ...gameState, ...parsedData };
+
+                // 만약 이미 NaN으로 잘못 저장된 데이터가 있다면 복구 (방어 코드)
+                if (isNaN(gameState.money) || gameState.money === null) gameState.money = 0;
+                if (isNaN(gameState.keyboardCount) || gameState.keyboardCount === null) gameState.keyboardCount = 0;
+                if (isNaN(gameState.keyboardCost) || gameState.keyboardCost === null) gameState.keyboardCost = 500;
+                if (isNaN(gameState.dualMonitorCount) || gameState.dualMonitorCount === null) gameState.dualMonitorCount = 0;
+                if (isNaN(gameState.dualMonitorCost) || gameState.dualMonitorCost === null) gameState.dualMonitorCost = 2000;
+                if (isNaN(gameState.coffeeCount) || gameState.coffeeCount === null) gameState.coffeeCount = 0;
+                if (isNaN(gameState.coffeeCost) || gameState.coffeeCost === null) gameState.coffeeCost = 300;
+                if (isNaN(gameState.rebirthCount) || gameState.rebirthCount === null) gameState.rebirthCount = 0;
+                if (isNaN(gameState.newbieCount) || gameState.newbieCount === null) gameState.newbieCount = 0;
+                if (isNaN(gameState.newbieCost) || gameState.newbieCost === null) gameState.newbieCost = 5000;
+                if (isNaN(gameState.leaderCount) || gameState.leaderCount === null) gameState.leaderCount = 0;
+                if (isNaN(gameState.leaderCost) || gameState.leaderCost === null) gameState.leaderCost = 50000;
+                if (isNaN(gameState.outsourceCount) || gameState.outsourceCount === null) gameState.outsourceCount = 0;
+                if (isNaN(gameState.outsourceCost) || gameState.outsourceCost === null) gameState.outsourceCost = 200000;
+                if (isNaN(gameState.minerCount) || gameState.minerCount === null) gameState.minerCount = 0;
+                if (isNaN(gameState.minerCost) || gameState.minerCost === null) gameState.minerCost = 1500000;
+                if (isNaN(gameState.politicsCount) || gameState.politicsCount === null) gameState.politicsCount = 0;
+                if (isNaN(gameState.politicsCost) || gameState.politicsCost === null) gameState.politicsCost = 10000000;
+                if (isNaN(gameState.weaknessCount) || gameState.weaknessCount === null) gameState.weaknessCount = 0;
+                if (isNaN(gameState.weaknessCost) || gameState.weaknessCost === null) gameState.weaknessCost = 100000000;
+                if (gameState.isMuted === undefined) gameState.isMuted = false;
+                if (gameState.lastHackTime === undefined) gameState.lastHackTime = 0;
+                
+                // 주식 데이터 병합 호환 처리
+                if (!gameState.stocks) {
+                    gameState.stocks = {
+                        samsung: { shares: 0, price: 50000, avgPrice: 0, history: Array(20).fill(50000) },
+                        tesla: { shares: 0, price: 200000, avgPrice: 0, history: Array(20).fill(200000) },
+                        nvidia: { shares: 0, price: 150000, avgPrice: 0, history: Array(20).fill(150000) },
+                        doge: { shares: 0, price: 500, avgPrice: 0, history: Array(20).fill(500) }
+                    };
+                } else {
+                    // 신규 종목 추가 대응 호환 패치
+                    if (!gameState.stocks.nvidia) {
+                        gameState.stocks.nvidia = { shares: 0, price: 150000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(150000) };
+                    }
+                    if (!gameState.stocks.apple) {
+                        gameState.stocks.apple = { shares: 0, price: 180000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(180000) };
+                    }
+                    if (!gameState.stocks.kakao) {
+                        gameState.stocks.kakao = { shares: 0, price: 40000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(40000) };
+                    }
+                    for (let key in gameState.stocks) {
+                        if (!gameState.stocks[key].history) {
+                            gameState.stocks[key].history = Array(20).fill(gameState.stocks[key].price);
+                        }
+                        if (!gameState.stocks[key].avgPrice) {
+                            if (gameState.stocks[key].shares > 0) {
+                                gameState.stocks[key].avgPrice = gameState.stocks[key].price; // 기존 유저 평단가 보정 방어코드
+                            } else {
+                                gameState.stocks[key].avgPrice = 0;
+                            }
+                        }
+                        // 총 매수 금액 속성이 없는 기존 세이브 데이터 호환 처리
+                        if (gameState.stocks[key].totalInvested === undefined) {
+                            gameState.stocks[key].totalInvested = gameState.stocks[key].shares * (gameState.stocks[key].avgPrice || 0);
+                        }
+                    }
+                }
+
+                // 추가: 오프라인 보상 계산 로직
+                if (gameState.lastSaveTime) {
+                    const now = Date.now();
+                    const offlineSeconds = Math.floor((now - gameState.lastSaveTime) / 1000);
+                    const offlineCps = calculateCPS();
+                    if (offlineSeconds > 0 && offlineCps > 0) {
+                        const earned = offlineSeconds * offlineCps;
+                        gameState.money += earned;
+                        alert(`오프라인 보상 획득!\n쉬는 동안 매크로 툴들이 ${earned.toLocaleString()}원을 벌어두었습니다!`);
+                    }
+                }
+                } catch (e) {
+                    console.error("세이브 데이터를 불러오는 도중 오류가 발생했습니다.", e);
+                }
+            }
+            gameState.lastSaveTime = Date.now();
+            updateUI();
+        }
+
+        // 3. 현재 게임 상태 로컬스토리지에 저장
+        function saveGame() {
+            gameState.lastSaveTime = Date.now();
+            localStorage.setItem('k_worker_sim_save', JSON.stringify(gameState));
+        }
+
+        // 4. 총 초당 생산량(CPS) 계산 함수
+        function calculateCPS() {
+            const baseCPS = (gameState.mouseCount * MOUSE_CPS) + (gameState.coffeeCount * COFFEE_CPS) + (gameState.aiCount * AI_CPS) + (gameState.newbieCount * NEWBIE_CPS) + (gameState.leaderCount * LEADER_CPS) + (gameState.outsourceCount * OUTSOURCE_CPS) + (gameState.minerCount * MINER_CPS) + (gameState.politicsCount * POLITICS_CPS) + (gameState.weaknessCount * WEAKNESS_CPS);
+            return Math.floor(baseCPS * (1 + (gameState.rebirthCount * 0.05)));
+        }
+
+        // n개 아이템 구매 시 필요한 총 비용 계산 함수
+        function getCostForItems(currentCost, amount) {
+            let total = 0;
+            let tempCost = currentCost;
+            for (let i = 0; i < amount; i++) {
+                total += tempCost;
+                tempCost = Math.floor(tempCost * 1.5);
+            }
+            return total;
+        }
+
+        // 주식 차트 그리기 함수 (Canvas 활용)
+        function drawStockChart(canvasId, history) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height); // 기존 캔버스 지우기
+
+            if (!history || history.length === 0) return;
+
+            const min = Math.min(...history);
+            const max = Math.max(...history);
+            const range = max - min === 0 ? 1 : max - min; // 0으로 나누기 방지
+
+            ctx.beginPath();
+            const step = width / (20 - 1); // 최대 20개의 점 기준 간격
+
+            for (let i = 0; i < history.length; i++) {
+                const x = i * step;
+                // 상하 2px 여백 부여
+                const y = height - 2 - ((history[i] - min) / range) * (height - 4); 
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+
+            const isUp = history.length >= 2 ? history[history.length - 1] >= history[history.length - 2] : true;
+            ctx.strokeStyle = isUp ? '#ef4444' : '#3b82f6'; // 상승 빨강, 하락 파랑
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+
+        // 음소거 토글 함수
+        function toggleMute() {
+            gameState.isMuted = !gameState.isMuted;
+            updateUI();
+            saveGame();
+        }
+
+        // 5. 화면(UI) 업데이트 함수
+        function updateUI() {
+            // 직급(칭호) 업데이트
+            const titleElement = document.getElementById('player-title');
+            if (titleElement) {
+                const titles = [
+                    "🌱 (주)좋소기업 신입사원",
+                    "🌿 판교 스타트업 주임",
+                    "☘️ 탄탄한 중견기업 대리",
+                    "🌲 누구나 아는 대기업 과장",
+                    "🌳 글로벌 외국계 기업 차장",
+                    "🚀 실리콘밸리 유니콘 부장"
+                ];
+                let currentTitle = "";
+                if (gameState.rebirthCount < titles.length) {
+                    currentTitle = titles[gameState.rebirthCount];
+                } else if (gameState.rebirthCount < 10) {
+                    currentTitle = "👑 글로벌 빅테크 임원(CTO)";
+                } else {
+                    currentTitle = "🌌 초거대 메가코프 최고경영자(CEO)";
+                }
+                titleElement.innerText = `[현재 소속] ${currentTitle}`;
+            }
+
+            // 현재 클릭 파워 계산 (경력직 환생 보너스 20% 적용)
+            const baseClickPower = CLICK_POWER + (gameState.keyboardCount * KEYBOARD_POWER) + (gameState.dualMonitorCount * DUAL_MONITOR_POWER);
+            const currentClickPower = Math.floor(baseClickPower * (1 + (gameState.rebirthCount * 0.2)));
+
+            // 음소거 버튼 UI 업데이트
+            const muteBtn = document.getElementById('btn-mute');
+            if (muteBtn) {
+                muteBtn.innerText = gameState.isMuted ? '🔇' : '🔊';
+            }
+
+            // 자산 및 CPS 변환 표시
+            document.getElementById('money-display').innerText = `${gameState.money.toLocaleString()}원 / 100억 원`;
+            document.getElementById('cps-display').innerText = `초당 자동 수입: ${calculateCPS().toLocaleString()}원`;
+            document.getElementById('click-hint-display').innerText = `코딩 노가다 (+${currentClickPower}원)`;
+
+            // 환생 보너스 표시
+            const rebirthDisplay = document.getElementById('rebirth-display');
+            if (gameState.rebirthCount > 0) {
+                rebirthDisplay.style.display = 'block';
+                rebirthDisplay.innerText = `🔄 경력직 보너스: 클릭 수입 +${gameState.rebirthCount * 20}%, 자동 수입 +${gameState.rebirthCount * 5}%`;
+            } else {
+                rebirthDisplay.style.display = 'none';
+            }
+
+            // 추가: 퇴사 게이지 바 및 퍼센트 텍스트 업데이트
+            const progressPercent = Math.min((gameState.money / GOAL_AMOUNT) * 100, 100);
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+            document.getElementById('progress-text').innerText = `목표 달성률: ${progressPercent.toFixed(2)}%`;
+
+            // 상점 아이템 개수 및 가격 업데이트 (10개 다중 구매 지원 및 리팩토링)
+            SHOP_ITEMS.forEach(item => {
+                const count = gameState[item.key + 'Count'];
+                const cost1 = gameState[item.key + 'Cost'];
+                
+                document.getElementById(`item-${item.id}-count`).innerText = `(${count}${item.unit})`;
+                
+                const btn1 = document.getElementById(`btn-buy-${item.id}`);
+                if (btn1) {
+                    btn1.innerText = cost1.toLocaleString() + '원';
+                    btn1.disabled = gameState.money < cost1;
+                }
+
+                const btn10 = document.getElementById(`btn-buy-${item.id}-10`);
+                if (btn10) {
+                    const cost10 = getCostForItems(cost1, 10);
+                    btn10.title = `10개 구매 비용: ${cost10.toLocaleString()}원`;
+                    btn10.disabled = gameState.money < cost10;
+                }
+            });
+
+            // 해킹 쿨타임 UI 업데이트
+            const hackBtn = document.getElementById('btn-hack');
+            if (hackBtn) {
+                const now = Date.now();
+                const cd = 300000; // 5분(300,000ms) 쿨타임
+                const remain = cd - (now - gameState.lastHackTime);
+                if (remain > 0) {
+                    hackBtn.innerText = `🔒 쿨타임 (${Math.ceil(remain / 1000)}초)`;
+                    hackBtn.disabled = true;
+                } else {
+                    hackBtn.innerText = `🔒 사내 망 해킹 (미니게임)`;
+                    hackBtn.disabled = false;
+                }
+            }
+
+            // 엔딩 버튼 표시 로직
+            const endingContainer = document.getElementById('ending-btn-container');
+            if (gameState.money >= GOAL_AMOUNT) {
+                endingContainer.style.display = 'block';
+            } else {
+                endingContainer.style.display = 'none';
+            }
+
+            // 복권 버튼 비활성화 로직
+            if (document.getElementById('btn-buy-lottery-1')) {
+                document.getElementById('btn-buy-lottery-1').disabled = gameState.money < LOTTERY_COST;
+                document.getElementById('btn-buy-lottery-10').disabled = gameState.money < LOTTERY_COST * 10;
+                document.getElementById('btn-buy-lottery-100').disabled = gameState.money < LOTTERY_COST * 100;
+            }
+
+            // 주식 거래소 UI 업데이트
+            for (let key in STOCK_INFO) {
+                if (document.getElementById(`stock-${key}-count`)) {
+                    document.getElementById(`stock-${key}-count`).innerText = `(${gameState.stocks[key].shares}주)`;
+                    
+                    const priceElement = document.getElementById(`stock-${key}-price`);
+                    const prevPrice = parseInt(priceElement.getAttribute('data-prev') || gameState.stocks[key].price);
+                    const currentPrice = gameState.stocks[key].price;
+                    
+                    priceElement.innerText = `${currentPrice.toLocaleString()}원`;
+                    if (currentPrice > prevPrice) priceElement.style.color = 'var(--accent-red)'; // 한국장 기준 상승(빨간불)
+                    else if (currentPrice < prevPrice) priceElement.style.color = 'var(--accent-blue)'; // 하락(파란불)
+                    priceElement.setAttribute('data-prev', currentPrice);
+                    
+                    document.getElementById(`btn-buy-1-${key}`).disabled = gameState.money < currentPrice * 1;
+                    document.getElementById(`btn-buy-5-${key}`).disabled = gameState.money < currentPrice * 5;
+                    document.getElementById(`btn-buy-10-${key}`).disabled = gameState.money < currentPrice * 10;
+                    document.getElementById(`btn-buy-20-${key}`).disabled = gameState.money < currentPrice * 20;
+                    
+                    document.getElementById(`btn-buy-half-${key}`).disabled = Math.floor((gameState.money * 0.5) / currentPrice) < 1;
+                    document.getElementById(`btn-buy-full-${key}`).disabled = Math.floor(gameState.money / currentPrice) < 1;
+                    
+                    document.getElementById(`btn-sell-1-${key}`).disabled = gameState.stocks[key].shares < 1;
+                    document.getElementById(`btn-sell-all-${key}`).disabled = gameState.stocks[key].shares <= 0;
+                    
+                    // 평단가 및 수익률 업데이트
+                    const avgElement = document.getElementById(`stock-${key}-avg`);
+                    if (avgElement) {
+                        const avgPrice = gameState.stocks[key].avgPrice || 0;
+                        if (gameState.stocks[key].shares > 0 && avgPrice > 0) {
+                            const returnRate = (((currentPrice - avgPrice) / avgPrice) * 100).toFixed(1);
+                            const color = returnRate > 0 ? 'var(--accent-red)' : (returnRate < 0 ? 'var(--accent-blue)' : 'var(--text-muted)');
+                            const sign = returnRate > 0 ? '+' : '';
+                            avgElement.innerHTML = `평단가: ${avgPrice.toLocaleString()}원 (<span style="color: ${color}; font-weight: bold;">${sign}${returnRate}%</span>)`;
+                        } else {
+                            avgElement.innerText = `평단가: 0원`;
+                        }
+                    }
+
+                    // 평가손익 업데이트
+                    const profitElement = document.getElementById(`stock-${key}-profit`);
+                    if (profitElement) {
+                        const avgPrice = gameState.stocks[key].avgPrice || 0;
+                        if (gameState.stocks[key].shares > 0 && avgPrice > 0) {
+                            const totalProfit = (currentPrice - avgPrice) * gameState.stocks[key].shares;
+                            const pColor = totalProfit > 0 ? 'var(--accent-red)' : (totalProfit < 0 ? 'var(--accent-blue)' : 'var(--text-muted)');
+                            const pSign = totalProfit > 0 ? '+' : '';
+                            profitElement.innerHTML = `손익: <span style="color: ${pColor}; font-weight: bold;">${pSign}${totalProfit.toLocaleString()}원</span>`;
+                        } else {
+                            profitElement.innerHTML = `손익: <span style="color: var(--text-muted);">0원</span>`;
+                        }
+                    }
+
+                    // 차트 업데이트
+                    drawStockChart(`chart-${key}`, gameState.stocks[key].history);
+                }
+            }
+        }
+
+        // 6. 노트북 수동 클릭 핸들러
+        function handleTargetClick(event) {
+            const baseClickPower = CLICK_POWER + (gameState.keyboardCount * KEYBOARD_POWER) + (gameState.dualMonitorCount * DUAL_MONITOR_POWER);
+            const currentClickPower = Math.floor(baseClickPower * (1 + (gameState.rebirthCount * 0.2)));
+            gameState.money += currentClickPower;
+            
+            playTypingSound(); // 타건음 재생
+            createFloatingText(event, currentClickPower);
+            updateUI();
+            saveGame();
+        }
+
+        // 클릭 시각 효과(플로팅 텍스트) 생성 함수
+        function createFloatingText(event, amount) {
+            const floatingText = document.createElement('div');
+            floatingText.className = 'floating-text';
+            floatingText.innerText = `+${amount.toLocaleString()}`;
+            
+            // 이벤트 객체가 없을 경우를 대비한 방어 로직 (버튼 중앙에서 표시)
+            const x = event && event.clientX ? event.clientX : window.innerWidth / 2;
+            const y = event && event.clientY ? event.clientY : window.innerHeight / 2;
+            
+            floatingText.style.left = `${x}px`;
+            floatingText.style.top = `${y}px`;
+            
+            document.body.appendChild(floatingText);
+            
+            setTimeout(() => floatingText.remove(), 800);
+        }
+
+        // 7. 아이템 구매 로직 (다중 구매 지원 및 리팩토링)
+        function buyItem(type, amount = 1) {
+            const costKey = type + 'Cost';
+            const countKey = type + 'Count';
+            
+            let totalCost = getCostForItems(gameState[costKey], amount);
+            
+            if (gameState.money >= totalCost) {
+                gameState.money -= totalCost;
+                gameState[countKey] += amount;
+                
+                // 가격 인상 (amount 번 반복)
+                for (let i = 0; i < amount; i++) {
+                    gameState[costKey] = Math.floor(gameState[costKey] * 1.5);
+                }
+                
+                playBuySound();
+                updateUI();
+                saveGame();
+            }
+        }
+
+        // 7-2. 복권 구매 및 결과 확인 로직
+        function buyLottery(amount = 1) {
+            const totalCost = LOTTERY_COST * amount;
+            if (gameState.money >= totalCost) {
+                gameState.money -= totalCost;
+                
+                let totalPrize = 0;
+                let highestRank = 5; // 5는 꽝을 의미
+                let isBankrupt = false;
+
+                for (let i = 0; i < amount; i++) {
+                    const rand = Math.random();
+                    if (rand < 0.0000001) { // 파산 (0.00001% 확률)
+                        isBankrupt = true;
+                        highestRank = 0;
+                    } else if (rand < 0.00005) { // 1등 (0.005% 확률)
+                        totalPrize += 10000000;
+                        if (highestRank > 1) highestRank = 1;
+                    } else if (rand < 0.002) { // 2등 (약 0.2% 확률)
+                        totalPrize += 500000;
+                        if (highestRank > 2) highestRank = 2;
+                    } else if (rand < 0.02) { // 3등 (약 1.8% 확률)
+                        totalPrize += 50000;
+                        if (highestRank > 3) highestRank = 3;
+                    } else if (rand < 0.17) { // 4등 (본전, 15% 확률)
+                        totalPrize += 5000;
+                        if (highestRank > 4) highestRank = 4;
+                    } else { // 꽝
+                        if (highestRank > 5) highestRank = 5;
+                    }
+                }
+
+                if (isBankrupt) {
+                    gameState.money = 0;
+                } else {
+                    gameState.money += totalPrize;
+                }
+                
+                let message = "";
+                let isWin = highestRank < 5 && !isBankrupt;
+                let isJackpot = highestRank <= 2 && highestRank > 0;
+
+                if (isBankrupt) {
+                    message = `☠️ [저주] 악마의 복권! 전재산이 공중분해 되었습니다... ☠️`;
+                } else if (amount === 1) {
+                    if (highestRank === 1) message = `🎉 1등 당첨!! 🎉 (+${totalPrize.toLocaleString()}원)`;
+                    else if (highestRank === 2) message = `✨ 2등 당첨! ✨ (+${totalPrize.toLocaleString()}원)`;
+                    else if (highestRank === 3) message = `👍 3등 당첨 (+${totalPrize.toLocaleString()}원)`;
+                    else if (highestRank === 4) message = `💸 4등 (본전) (+${totalPrize.toLocaleString()}원)`;
+                    else message = "💥 꽝! 다음 기회에...";
+                } else {
+                    if (isWin) {
+                        message = `🎊 ${amount}장 결과: 최고 ${highestRank}등! 총 +${totalPrize.toLocaleString()}원`;
+                    } else {
+                        message = `💥 ${amount}장 전부 꽝... 내 돈 ${totalCost.toLocaleString()}원...`;
+                    }
+                }
+                
+                const resultDiv = document.getElementById('lottery-result');
+                resultDiv.innerText = message;
+                resultDiv.style.color = isWin ? 'var(--accent-red)' : (isBankrupt ? 'var(--accent-blue)' : 'var(--text-muted)');
+                
+                if (isBankrupt) playNewsSound(false); // 극적인 파산 효과음
+                else if (isJackpot) playBonusSound();
+                else if (isWin) playBuySound();
+                else playFailSound();
+
+                updateUI();
+                saveGame();
+            }
+        }
+
+        // 주식 거래 기능
+        function buyStock(id, amount = 1) {
+            let stock = gameState.stocks[id];
+            let totalCost = stock.price * amount;
+            if (gameState.money >= totalCost) {
+                gameState.money -= totalCost;
+                
+                // 누적된 총 매수 금액에 이번 매수 금액을 합산
+                stock.totalInvested = (stock.totalInvested || 0) + totalCost;
+                stock.shares += amount;
+                stock.avgPrice = Math.floor(stock.totalInvested / stock.shares); // 정확한 평단가 계산 (총 매수금액 ÷ 총 보유수량)
+                playBuySound();
+                updateUI();
+                saveGame();
+            }
+        }
+
+        function buyStockPercent(id, percent) {
+            let stock = gameState.stocks[id];
+            let availableMoney = gameState.money * percent;
+            let amount = Math.floor(availableMoney / stock.price);
+            
+            if (amount > 0) {
+                buyStock(id, amount); // 공통 구매 로직 재사용
+            }
+        }
+
+        function sellStock(id, amount = 1) {
+            let stock = gameState.stocks[id];
+            if (stock.shares >= amount) {
+                gameState.money += stock.price * amount;
+                
+                // 매도 시 비율만큼 총 매수 금액 차감 (평단가 유지용)
+                let costToDeduct = (stock.totalInvested / stock.shares) * amount;
+                stock.totalInvested -= costToDeduct;
+                
+                stock.shares -= amount;
+                if (stock.shares === 0) {
+                    stock.avgPrice = 0; // 모두 매도하면 평단가 초기화
+                    stock.totalInvested = 0;
+                } else {
+                    stock.avgPrice = Math.floor(stock.totalInvested / stock.shares);
+                }
+                playBuySound();
+                updateUI();
+                saveGame();
+            }
+        }
+
+        function sellAllStock(id) {
+            let stock = gameState.stocks[id];
+            if (stock.shares > 0) {
+                sellStock(id, stock.shares); // 공통 매도 로직 재사용
+            }
+        }
+
+        // 8. 데이터 초기화 기능
+        function resetGame(force = false, isRebirth = false) {
+            if (force || confirm("정말로 모든 퇴사 자금을 날리고 신입 사원으로 돌아가시겠습니까? (경력 보너스도 초기화됩니다!)")) {
+                let newRebirthCount = 0;
+                if (isRebirth) {
+                    // 보유 자산이 1억(GOAL_AMOUNT) 단위로 넘어갈 때마다 추가 보너스 획득 (2억 = 2번, 3억 = 3번)
+                    let additionalRebirths = Math.floor(gameState.money / GOAL_AMOUNT);
+                    if (additionalRebirths < 1) additionalRebirths = 1; // 최소 1번은 보장
+                    newRebirthCount = (gameState.rebirthCount || 0) + additionalRebirths;
+                }
+                localStorage.removeItem('k_worker_sim_save');
+                gameState = {
+                    money: 0,
+                    mouseCount: 0,
+                    mouseCost: 100,
+                    coffeeCount: 0,
+                    coffeeCost: 300,
+                    aiCount: 0,
+                    aiCost: 1000,
+                    keyboardCount: 0,
+                    keyboardCost: 500,
+                    dualMonitorCount: 0,
+                    dualMonitorCost: 2000,
+                    newbieCount: 0,
+                    newbieCost: 5000,
+                    leaderCount: 0,
+                    leaderCost: 50000,
+                    outsourceCount: 0,
+                    outsourceCost: 200000,
+                    minerCount: 0,
+                    minerCost: 1500000,
+                    politicsCount: 0,
+                    politicsCost: 10000000,
+                    weaknessCount: 0,
+                    weaknessCost: 100000000,
+                    lastSaveTime: Date.now(),
+                    lastHackTime: 0,
+                    rebirthCount: newRebirthCount,
+                    isMuted: gameState.isMuted, // 환생해도 음소거 설정은 유지
+                    stocks: {
+                        samsung: { shares: 0, price: 50000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(50000) },
+                        tesla: { shares: 0, price: 200000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(200000) },
+                        nvidia: { shares: 0, price: 150000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(150000) },
+                        doge: { shares: 0, price: 500, avgPrice: 0, totalInvested: 0, history: Array(20).fill(500) },
+                        apple: { shares: 0, price: 180000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(180000) },
+                        kakao: { shares: 0, price: 40000, avgPrice: 0, totalInvested: 0, history: Array(20).fill(40000) }
+                    }
+                };
+                updateUI();
+                saveGame(); // 환생 후 상태 즉시 저장
+            }
+        }
+
+        // 9. 방치형 시스템: 1초(1000ms)마다 자동으로 돈 상승
+        setInterval(function() {
+            const currentCps = calculateCPS();
+            if (currentCps > 0) {
+                gameState.money += currentCps;
+                updateUI();
+                saveGame();
+            }
+        }, 1000);
+
+        // 10. 엔딩 관련 기능
+        function throwResignation() {
+            document.getElementById('ending-modal').style.display = 'flex';
+            
+            const additionalRebirths = Math.floor(gameState.money / GOAL_AMOUNT);
+            const infoText = document.getElementById('ending-rebirth-info');
+            if (infoText) {
+                infoText.innerText = `이번 환생으로 추가 획득하는 경력직 보너스: +${additionalRebirths}번 (총 자산 ${Math.floor(gameState.money / 100000000)}억 돌파!)`;
+            }
+            playFanfareSound(); // 팡파르 효과음 재생
+        }
+
+        function closeEndingAndReset() {
+            document.getElementById('ending-modal').style.display = 'none';
+            resetGame(true, true); // 알림창 없이 강제 초기화 및 환생 카운트 증가
+        }
+
+        // 11. 돌발 이벤트 (결재 서류) 기능
+        function spawnBonusEvent() {
+            const documentIcon = document.createElement('div');
+            documentIcon.className = 'bonus-item';
+            
+            // 5% 확률로 황금 서류, 5% 확률로 함정(실수) 서류 등장
+            const rand = Math.random();
+            const isGolden = rand < 0.05;
+            const isTrap = rand >= 0.05 && rand < 0.10;
+            
+            if (isGolden) {
+                documentIcon.innerText = '✨📁✨';
+                documentIcon.style.filter = 'drop-shadow(0 0 15px #fbbf24)'; // 황금색 빛 효과
+            } else {
+                documentIcon.innerText = '📁'; // 함정 서류도 일반 서류와 완벽히 똑같이 위장
+            }
+            
+            // 화면 세로 길이의 10% ~ 80% 사이 랜덤한 위치 지정
+            const startY = Math.random() * 70 + 10;
+            documentIcon.style.top = `${startY}vh`;
+            
+            documentIcon.onclick = (e) => {
+                if (isTrap) {
+                    // 함정 서류: 현재 보유 금액의 20% 차감
+                    const penaltyAmount = Math.floor(gameState.money * 0.2);
+                    gameState.money -= penaltyAmount;
+                    
+                    playFailSound(); // 파산/실패 효과음
+                    createFloatingText(e, `-${penaltyAmount.toLocaleString()} (서류 실수!)`, true);
+                    showNewsNotification(`🚨 [인사팀] 결재 서류 실수 발각! 시말서 작성 및 자산의 20% 배상!`, "negative");
+                    
+                    documentIcon.remove();
+                    updateUI();
+                    saveGame();
+                    return;
+                }
+
+                // 보너스 밸런스 2차 하향 패치: (초당 수입의 5~15초치 랜덤) + (현재 소지금의 0.05%) + 기본 500원
+                const cpsBonus = calculateCPS() * Math.floor(Math.random() * 11 + 5);
+                const moneyBonus = Math.floor(gameState.money * 0.0005);
+                let bonusAmount = cpsBonus + moneyBonus + 500;
+                
+                // 황금 서류일 경우 보상 2배 뻥튀기! (기존 3배에서 밸런스 추가 하향)
+                if (isGolden) bonusAmount *= 2;
+                
+                gameState.money += bonusAmount;
+                
+                playBonusSound(); // 보너스 효과음 재생
+                createFloatingText(e, bonusAmount);
+                documentIcon.remove();
+                
+                updateUI();
+                saveGame();
+            };
+            
+            document.body.appendChild(documentIcon);
+            
+            // 5초(애니메이션 길이) 후 아이콘 자동 삭제
+            setTimeout(() => {
+                if (documentIcon.parentElement) documentIcon.remove();
+            }, 5000);
+            
+            // 다음 이벤트 예약 (15초 ~ 45초 사이 랜덤 등장)
+            const nextSpawn = Math.random() * 30000 + 15000;
+            setTimeout(spawnBonusEvent, nextSpawn);
+        }
+
+        // 12. 1분(60000ms) 간격으로 자동 저장 실행
+        function showSaveNotification() {
+            let notif = document.getElementById('save-notification');
+            if (!notif) {
+                notif = document.createElement('div');
+                notif.id = 'save-notification';
+                notif.className = 'save-notification';
+                notif.innerText = '💾 자동 저장됨';
+                document.body.appendChild(notif);
+            }
+            notif.classList.add('show');
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 2000); // 2초 뒤 사라짐
+        }
+
+        setInterval(() => {
+            saveGame();
+            showSaveNotification();
+        }, 60000);
+
+        // 13. 주가 변동 시스템 (3초 간격)
+        setInterval(() => {
+            for (let key in gameState.stocks) {
+                let stock = gameState.stocks[key];
+                let info = STOCK_INFO[key];
+                
+                if (stock.trendTicks && stock.trendTicks > 0) {
+                    // 뉴스로 인한 연속적인 상승/하락 트렌드 적용
+                    let expectedPrice = stock.price * stock.trendMultiplier;
+                    // 소수점 절사로 인해 가격 변동이 0원이 되어 랠리가 끊기는 현상 방지
+                    if (stock.trendMultiplier > 1 && Math.floor(expectedPrice) <= stock.price) {
+                        expectedPrice = stock.price + 1;
+                    } else if (stock.trendMultiplier < 1 && Math.floor(expectedPrice) >= stock.price) {
+                        expectedPrice = stock.price - 1;
+                    }
+                    stock.price = Math.max(10, Math.floor(expectedPrice));
+                    stock.trendTicks--;
+                } else {
+                    let changePercent;
+                    // 진돗개코인(doge) 하락 확률 65%, 상승 확률 35% (6.5 : 3.5 비율)
+                    if (key === 'doge') {
+                        if (Math.random() < 0.65) {
+                            changePercent = -(Math.random() * 0.20); // 하락폭 0~20%로 완화
+                        } else {
+                            // 상승 시 5% 확률로 대박 폭등, 95% 확률로 일반 상승
+                            if (Math.random() < 0.05) {
+                                changePercent = 1.5 + (Math.random() * 1.5);
+                                showNewsNotification(`🚀 [진돗개코인 투더문!] 기적이 일어났습니다! 단숨에 ${Math.floor(changePercent * 100)}% 대폭등!`, "positive");
+                                playBonusSound(); // 대폭등에 어울리는 짜릿한 보너스 효과음 재생
+                            } else {
+                                changePercent = Math.random() * info.volatility;
+                            }
+                        }
+                    } else {
+                        // 기본 랜덤 변동률 (-volatility ~ +volatility)
+                        changePercent = (Math.random() * info.volatility * 2) - info.volatility;
+                    }
+                    
+                    // 가격이 상장가(Base Price)에서 너무 멀어지면 중심으로 회귀하려는 성질(5%) 추가
+                    let diffFromBase = (info.basePrice - stock.price) / info.basePrice;
+                    changePercent += diffFromBase * 0.05; 
+                    
+                    stock.price = Math.max(10, Math.floor(stock.price * (1 + changePercent))); // 최소 주가 10원 방어
+                }
+
+                // 모든 종목 상장폐지 이벤트 (주가가 상장가의 10% 이하로 떨어지면 10% 확률로 발생)
+                if (stock.price <= info.basePrice * 0.1 && Math.random() < 0.1) {
+                    if (stock.shares > 0) {
+                        showNewsNotification(`🚨 [상장폐지] ${info.name} 휴지조각 전락! 보유 주식이 0원에 강제 청산되었습니다.`, "negative");
+                        playFailSound(); // 파산(꽝) 효과음 재생
+                    } else {
+                        showNewsNotification(`🚨 [상장폐지] ${info.name} 상장폐지 후 ${info.basePrice.toLocaleString()}원에 재상장!`, "negative");
+                    }
+                    // 주식 강제 처분 (0원 처리) 및 초기화
+                    stock.shares = 0;
+                    stock.avgPrice = 0;
+                    stock.totalInvested = 0;
+                    stock.price = info.basePrice; // 기본가로 리셋
+                    stock.history = Array(20).fill(info.basePrice);
+                } else {
+                    // 차트 기록(history) 배열 업데이트
+                    if (!stock.history) stock.history = Array(20).fill(stock.price);
+                    stock.history.push(stock.price);
+                    if (stock.history.length > 20) stock.history.shift(); // 20개 초과 시 오래된 데이터 삭제
+                }
+            }
+            updateUI();
+        }, 3000);
+
+        // 뉴스 기록 저장용 배열 (최대 3개 유지)
+        let newsHistory = [];
+        let paydayBoostMultiplier = 1; // 월급날 버프용 배율
+        let paydayTimeout = null;      // 월급날 버프 해제 타이머
+
+        // 14. 돌발 뉴스 이벤트 시스템
+        function showNewsNotification(text, type) {
+            const stockNewsDisplay = document.getElementById('stock-news-display');
+            if (stockNewsDisplay) {
+                let color = type === 'negative' ? 'var(--accent-blue)' : (type === 'positive' ? 'var(--accent-red)' : 'var(--text-muted)');
+                
+                // 새 뉴스를 맨 앞에 추가
+                newsHistory.unshift(`<div style="color: ${color}; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;">${text}</div>`);
+                
+                // 최대 5개까지만 유지
+                if (newsHistory.length > 5) {
+                    newsHistory.pop();
+                }
+                
+                stockNewsDisplay.innerHTML = newsHistory.join('');
+            }
+        }
+
+        function spawnNewsEvent() {
+            const newsCount = Math.floor(Math.random() * 5) + 1; // 1~5개의 뉴스가 한 번에 생성
+            
+            for (let i = 0; i < newsCount; i++) {
+                // 30% 확률로 주가에 영향이 없는 일상(가짜) 뉴스 등장
+                if (Math.random() < 0.3) {
+                    // 그 중에서도 20% 확률로 '월급날' 버프 이벤트 발생
+                    if (Math.random() < 0.2) {
+                        if (paydayTimeout) clearTimeout(paydayTimeout);
+                        paydayBoostMultiplier = 2; // 2배 버프
+                        document.body.classList.add('payday-active'); // 시각 효과 켜기
+                        playBonusSound(); // 빰빰빰! 보너스 효과음
+                        showNewsNotification(`🎉 [사내 속보] 오늘은 월급날! 30초 동안 모든 수입 2배 뻥튀기!`, "positive");
+                        
+                        paydayTimeout = setTimeout(() => {
+                            paydayBoostMultiplier = 1;
+                            document.body.classList.remove('payday-active'); // 시각 효과 끄기
+                            showNewsNotification(`💸 [사내 속보] 월급이 통장을 스쳐 지나갔습니다... 수입 정상화.`, "negative");
+                            updateUI();
+                        }, 30000); // 30초 뒤 원래대로
+                    } else {
+                        const generalNews = [
+                            "회사 탕비실 믹스커피 재고 소진... 직원들 패닉!",
+                            "오늘 구내식당 메뉴 제육볶음! (시장에 아무 영향 없음)",
+                            "김대리, 화장실 간다며 30분째 감깜무소식...",
+                            "부장님 아재개그에 사무실 10초간 정적...",
+                            "사장님 외근 나감! 사무실에 잠시 평화가 찾아왔습니다."
+                        ];
+                        const randomNews = generalNews[Math.floor(Math.random() * generalNews.length)];
+                        
+                        playTypingSound(); // 가벼운 알림음 대체
+                        showNewsNotification(`💬 [사내 속보] ${randomNews}`, "neutral");
+                    }
+                } else {
+                    const stockKeys = Object.keys(STOCK_INFO);
+                    const randomStock = stockKeys[Math.floor(Math.random() * stockKeys.length)];
+                    const newsList = STOCK_NEWS[randomStock];
+                    const randomNews = newsList[Math.floor(Math.random() * newsList.length)];
+                    
+                    let stock = gameState.stocks[randomStock];
+                    
+                    // 뉴스 파급력(멀티플라이어) 계산
+                    const minM = randomNews.multi[0];
+                    const maxM = randomNews.multi[1];
+                    const totalMultiplier = Math.random() * (maxM - minM) + minM;
+                    
+                    // 확실한 랠리 체감을 위해 4~5번에 걸쳐 트렌드 설정 (첫 틱 즉시 적용 + 이후 3~4번)
+                    const ticks = Math.floor(Math.random() * 2) + 4; 
+                    stock.trendTicks = ticks;
+                    stock.trendMultiplier = Math.pow(totalMultiplier, 1 / ticks); // 매 틱마다 곱해질 배율
+                    
+                    // 첫 번째 틱(1번) 즉시 적용
+                    let expectedPrice = stock.price * stock.trendMultiplier;
+                    if (stock.trendMultiplier > 1 && Math.floor(expectedPrice) <= stock.price) {
+                        expectedPrice = stock.price + 1;
+                    } else if (stock.trendMultiplier < 1 && Math.floor(expectedPrice) >= stock.price) {
+                        expectedPrice = stock.price - 1;
+                    }
+                    stock.price = Math.max(10, Math.floor(expectedPrice));
+                    stock.trendTicks--;
+                    
+                    // 차트(history)에도 즉시 기록되도록 추가하여 랠리의 시작을 바로 보여줌
+                    if (!stock.history) stock.history = Array(20).fill(stock.price);
+                    stock.history.push(stock.price);
+                    if (stock.history.length > 20) stock.history.shift();
+
+                    // 효과음 재생 및 화면 업데이트
+                    playNewsSound(randomNews.type === 'positive');
+                    showNewsNotification(`🚨 [${STOCK_INFO[randomStock].name}] ${randomNews.text}`, randomNews.type);
+                }
+            }
+            
+            updateUI();
+            saveGame();
+            
+            // 다음 뉴스 예약 (30초 ~ 90초 사이 랜덤 등장)
+            const nextSpawn = Math.random() * 60000 + 30000;
+            setTimeout(spawnNewsEvent, nextSpawn);
+        }
+
+        // 15. 비밀번호 해킹 미니게임 (숫자 야구 룰)
+        let hackTarget = "";
+        let hackAttempts = 10;
+
+        function openHackModal() {
+            if (Date.now() - gameState.lastHackTime < 300000) return; // 쿨타임 방어
+
+            // 정답 생성: 중복 없는 3자리 숫자 (0~9)
+            let digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+            digits.sort(() => Math.random() - 0.5);
+            hackTarget = digits.slice(0, 3).join('');
+            hackAttempts = 10;
+
+            document.getElementById('hack-chances').innerText = hackAttempts;
+            document.getElementById('hack-log').innerHTML = '<div style="color: var(--text-muted); text-align: center;">--- 시스템 연결됨 ---</div>';
+            document.getElementById('hack-input').value = '';
+            document.getElementById('hack-modal').style.display = 'flex';
+            setTimeout(() => document.getElementById('hack-input').focus(), 100);
+        }
+
+        function closeHackModal() {
+            document.getElementById('hack-modal').style.display = 'none';
+        }
+
+        function submitHack() {
+            const inputEl = document.getElementById('hack-input');
+            const val = inputEl.value;
+
+            if (!/^\d{3}$/.test(val)) {
+                alert("3자리 숫자를 정확히 입력해주세요.");
+                return;
+            }
+            if (new Set(val.split('')).size !== 3) {
+                alert("각 자리 숫자는 중복될 수 없습니다. (예: 123)");
+                return;
+            }
+
+            hackAttempts--;
+            document.getElementById('hack-chances').innerText = hackAttempts;
+
+            let strikes = 0, balls = 0;
+            for (let i = 0; i < 3; i++) {
+                if (val[i] === hackTarget[i]) strikes++;
+                else if (hackTarget.includes(val[i])) balls++;
+            }
+
+            const logEl = document.getElementById('hack-log');
+            let resultText = `> [${val}] `;
+            if (strikes === 3) resultText += `<span style="color: var(--accent-green);">접속 성공! (3S)</span>`;
+            else if (strikes === 0 && balls === 0) resultText += `<span style="color: var(--accent-red);">Out (일치 없음)</span>`;
+            else resultText += `<span style="color: #3b82f6;">${strikes}S ${balls}B</span>`;
+
+            logEl.innerHTML += `<div>${resultText}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+
+            if (strikes === 3) {
+                const reward = calculateCPS() * 300 + 100000; // 초당 수입 5분치 + 10만원
+                gameState.money += reward;
+                gameState.lastHackTime = Date.now();
+                playBonusSound();
+                alert(`해킹 성공! 시스템에서 비자금 ${reward.toLocaleString()}원을 탈취했습니다!`);
+                closeHackModal();
+                updateUI();
+                saveGame();
+            } else if (hackAttempts <= 0) {
+                gameState.lastHackTime = Date.now();
+                playFailSound();
+                alert(`해킹 실패... 보안 시스템에 발각되었습니다.\n(정답: ${hackTarget})`);
+                closeHackModal();
+                updateUI();
+                saveGame();
+            } else {
+                playTypingSound();
+                inputEl.value = '';
+                inputEl.focus();
+            }
+        }
+
+        // 16. 슬롯머신 미니게임
+        const SLOT_SYMBOLS = ["🍒", "🍋", "🍉", "🔔", "💎", "7️⃣"];
+        let isSlotSpinning = false;
+        let slotIntervals = [];
+
+        function addSlotCost(amount) {
+            if (isSlotSpinning) return;
+            const input = document.getElementById('slot-cost-input');
+            let current = parseInt(input.value) || 0;
+            
+            if (amount === 'max') {
+                current = Math.max(1, gameState.money);
+            } else {
+                current += amount;
+                if (current > gameState.money) current = gameState.money; // 보유 소지금 초과 방지
+            }
+            
+            input.value = current;
+            checkSlotCost();
+        }
+
+        function checkSlotCost() {
+            const input = document.getElementById('slot-cost-input');
+            const cost = parseInt(input.value) || 0;
+            document.getElementById('btn-spin').disabled = cost <= 0 || gameState.money < cost;
+        }
+
+        function openSlotModal() {
+            if (isSlotSpinning) return;
+            // 비용은 초당 수입 10초치 또는 최소 10,000원으로 자동 스케일링되어 기본값 세팅
+            const suggestedCost = Math.max(10000, calculateCPS() * 10);
+            const input = document.getElementById('slot-cost-input');
+            input.value = Math.min(suggestedCost, Math.max(1, gameState.money)); // 소지금에 맞춰 자동 조정
+            
+            document.getElementById('slot-result').innerText = "행운을 빕니다!";
+            document.getElementById('slot-result').style.color = "var(--text-muted)";
+            checkSlotCost();
+            document.getElementById('slot-modal').style.display = 'flex';
+        }
+
+        function closeSlotModal() {
+            if (isSlotSpinning) return;
+            document.getElementById('slot-modal').style.display = 'none';
+        }
+
+        function spinSlot() {
+            if (isSlotSpinning) return;
+            const input = document.getElementById('slot-cost-input');
+            const cost = parseInt(input.value) || 0;
+            
+            if (cost <= 0) {
+                alert("판돈을 올바르게 입력해주세요!");
+                return;
+            }
+            if (gameState.money < cost) {
+                alert("돈이 부족합니다!");
+                return;
+            }
+
+            gameState.money -= cost;
+            updateUI();
+            saveGame();
+
+            isSlotSpinning = true;
+            document.getElementById('btn-spin').disabled = true;
+            document.getElementById('btn-slot-close').disabled = true;
+            input.disabled = true; // 돌아가는 중 금액 수정 불가
+            document.getElementById('btn-slot-add-1m').disabled = true;
+            document.getElementById('btn-slot-add-10m').disabled = true;
+            document.getElementById('btn-slot-add-max').disabled = true;
+            document.getElementById('slot-result').innerText = "돌아가는 중...";
+            document.getElementById('slot-result').style.color = "var(--text-muted)";
+            playTypingSound(); // 시작 시 가벼운 소리
+
+            const reels = [document.getElementById('reel1'), document.getElementById('reel2'), document.getElementById('reel3')];
+            let results = [];
+
+            // 확률 조작 (결과 사전 결정 로직 도입)
+            let finalResults = [];
+            const rand = Math.random();
+            const FRUITS = ["🍒", "🍋", "🍉", "🔔"];
+            
+            if (rand < 0.002) { // 0.2% 확률 - 잭팟 (100배)
+                finalResults = ["7️⃣", "7️⃣", "7️⃣"];
+            } else if (rand < 0.01) { // 0.8% 확률 - 초대박 (50배)
+                finalResults = ["💎", "💎", "💎"];
+            } else if (rand < 0.05) { // 4.0% 확률 - 대박 (10배)
+                const s = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+                finalResults = [s, s, s];
+            } else if (rand < 0.30) { // 25.0% 확률 - 본전 (2배)
+                const s1 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                let s2 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                while (s1 === s2) s2 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                finalResults = [s1, s1, s2].sort(() => Math.random() - 0.5);
+            } else { // 70.0% 확률 - 꽝
+                let s1 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                let s2 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                while (s1 === s2) s2 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                let s3 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                while (s3 === s1 || s3 === s2) s3 = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                finalResults = [s1, s2, s3];
+            }
+
+            for (let i = 0; i < 3; i++) {
+                slotIntervals[i] = setInterval(() => {
+                    reels[i].innerText = SLOT_SYMBOLS[Math.floor(Math.random() * SLOT_SYMBOLS.length)];
+                }, 50);
+            }
+
+            setTimeout(() => { clearInterval(slotIntervals[0]); results[0] = reels[0].innerText = finalResults[0]; playBuySound(); }, 1000);
+            setTimeout(() => { clearInterval(slotIntervals[1]); results[1] = reels[1].innerText = finalResults[1]; playBuySound(); }, 1500);
+            setTimeout(() => { 
+                clearInterval(slotIntervals[2]); 
+                results[2] = reels[2].innerText = finalResults[2]; 
+                
+                isSlotSpinning = false;
+                input.disabled = false; // 금액 입력 활성화
+                document.getElementById('btn-spin').disabled = false;
+                document.getElementById('btn-slot-close').disabled = false;
+                document.getElementById('btn-slot-add-1m').disabled = false;
+                document.getElementById('btn-slot-add-10m').disabled = false;
+                document.getElementById('btn-slot-add-max').disabled = false;
+
+                const counts = {};
+                results.forEach(s => counts[s] = (counts[s] || 0) + 1);
+                
+                let maxCount = 0, bestSymbol = "";
+                for (let s in counts) {
+                    if (counts[s] > maxCount) { maxCount = counts[s]; bestSymbol = s; }
+                }
+
+                let multiplier = 0;
+                if (maxCount === 3) {
+                    if (bestSymbol === "7️⃣") multiplier = 100;
+                    else if (bestSymbol === "💎") multiplier = 50;
+                    else multiplier = 10;
+                } else if (maxCount === 2) {
+                    multiplier = 2; // 본전 2배
+                }
+
+                const resultDiv = document.getElementById('slot-result');
+                if (multiplier > 0) {
+                    const prize = cost * multiplier;
+                    gameState.money += prize;
+                    resultDiv.innerText = `🎉 당첨! x${multiplier}배 (+${prize.toLocaleString()}원) 🎉`;
+                    resultDiv.style.color = "var(--accent-red)";
+                    if (multiplier >= 10) playBonusSound();
+                    else playBuySound();
+                } else {
+                    resultDiv.innerText = "💥 꽝! 다음 기회에...";
+                    resultDiv.style.color = "var(--accent-blue)";
+                    playFailSound();
+                }
+                
+                updateUI();
+                saveGame();
+                checkSlotCost(); // 종료 후 현재 금액으로 다시 활성화 여부 체크
+            }, 2000);
+        }
+
+        // 페이지가 열리면 자동으로 데이터 로딩 실행
+        function refreshAdsensePanel() {
+            const panel = document.getElementById('adsense-panel');
+            const slot = document.getElementById('adsense-slot');
+            if (!panel || !slot) return;
+
+            const client = slot.dataset.adClient || '';
+            const adSlot = slot.dataset.adSlot || '';
+            const isConfigured = client.startsWith('ca-pub-') && adSlot && adSlot !== 'YYYYYYYYYY' && !adSlot.includes('Y');
+            const hasPublisherContent = !!document.getElementById('money-display') && document.body.textContent.trim().length > 120;
+
+            const canShowAd = isConfigured && hasPublisherContent;
+            panel.hidden = !canShowAd;
+            panel.setAttribute('aria-hidden', String(!canShowAd));
+
+            if (!canShowAd || slot.dataset.adRequested === 'true') return;
+
+            try {
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+                slot.dataset.adRequested = 'true';
+            } catch (error) {
+                panel.hidden = true;
+                panel.setAttribute('aria-hidden', 'true');
+                console.warn('AdSense request was skipped.', error);
+            }
+        }
+
+        window.onload = () => {
+            loadGame();
+            refreshAdsensePanel();
+            setTimeout(spawnBonusEvent, 10000);
+            setTimeout(spawnNewsEvent, 25000);
+        };
+    </script>
+</body>
+</html>
