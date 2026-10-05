@@ -69,7 +69,7 @@ export const projects = [
     title: 'K-직장인 퇴사 시뮬레이터', eyebrow: '방치형 클리커', category: 'web',
     description: '목표 자금을 모아 사표를 던지는 유쾌한 직장인 클리커 게임.',
     tags: ['HTML', 'JavaScript', '게임'], icon: '⌁', tone: 'lime',
-    preview: 'play/k-worker/index.html',
+    preview: 'play/프로젝트 E/index.html',
   },
   {
     id: 'web-game', repo: 'Web_Game', branch: 'main',

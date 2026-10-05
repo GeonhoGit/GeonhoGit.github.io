@@ -27,6 +27,10 @@ test('프로젝트 D는 고누 실행 파일을 연다', () => {
   assertPreviewFolder('Gonu', 'D');
 });
 
+test('프로젝트 E는 K-직장인 퇴사 시뮬레이터 실행 파일을 연다', () => {
+  assertPreviewFolder('k--', 'E');
+});
+
 test('catalog includes the fourteen requested repositories and excludes home', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
