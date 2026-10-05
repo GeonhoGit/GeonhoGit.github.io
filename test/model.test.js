@@ -16,6 +16,7 @@ test('catalog includes the fourteen requested repositories and excludes home', (
 
 test('playable work opens on preview and native work opens on files', () => {
   assert.equal(defaultTab(projects.find(project => project.repo === 'Gonu')), 'preview');
+  assert.equal(defaultTab(projects.find(project => project.repo === 'P.F')), 'preview');
   assert.equal(defaultTab(projects.find(project => project.repo === 'moneybook')), 'files');
 });
 

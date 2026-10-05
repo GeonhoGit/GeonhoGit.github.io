@@ -1,0 +1,157 @@
+body,p{
+    margin: 0px;
+    font-size: 1.5vw;
+}
+body{
+    height: 100vh;
+}
+.Nunber{
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+.Nunber1{
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly;
+}
+.every{
+    display: flex;
+    justify-content: center;
+    width: 50%;
+    border: 1px solid black;
+    -ms-user-select: none; 
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.no_every{
+    display: flex;
+    justify-content: center;
+    width: 50%;;
+    border: 1px solid black;
+    border-left: 0px;
+    -ms-user-select: none; 
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.drawing{
+    -ms-user-select: none; 
+    -moz-user-select: -moz-none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+/* 호버 이벤트  */
+.drawing:hover{
+    cursor:default;
+    color: red;
+}
+.every:hover{
+    cursor:default;
+    color: red;
+}
+.no_every:hover{
+    cursor:default;
+    color: red;
+}
+
+.draw_number_1{
+    display: none;
+    height: 40vw;
+    justify-content: space-evenly;
+    flex-direction: column;
+}
+
+
+.draw_number{
+    display: none;
+    width: 100%;
+    margin-top: 1.65%;
+    height: 12.3%;
+}
+
+.draw_number0{
+    display: flex;
+    width: 100%;
+    height: 15%;
+}
+.draw_number1{
+    display: flex;
+    width: 100%;
+    height: 15%;
+}
+.draw_number2{
+    display: flex;
+    width: 100%;
+    height: 15%;
+}
+.draw_number3{
+    display: flex;
+    width: 100%;
+    height: 15%;
+}
+.draw_number4{
+    display: flex;
+    width: 100%;
+    height: 15%;
+}
+
+.draw_number p{
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+    color: blue;
+}
+
+.draw_number0 p{
+    color: red;
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+}
+.draw_number1 p{
+    color: blue;
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+}
+.draw_number2 p{
+    color: red;
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+}
+.draw_number3 p{
+    color: blue;
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+}
+.draw_number4 p{
+    color: red;
+    display: flex;
+    justify-content: center;
+    width: 15%;
+    border: 1px solid black;
+    border-right: 0px;
+    align-items: center;
+}

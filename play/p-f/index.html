@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>작은 웹 실험들</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #111724; color: #f4f1eb; font: 15px/1.6 'Malgun Gothic', sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 24px; border-bottom: 1px solid #333d50; }
+    header strong { font-size: 17px; }
+    header button { border: 1px solid #737e91; background: transparent; color: #fff; border-radius: 8px; padding: 8px 13px; cursor: pointer; }
+    header button[hidden] { display: none; }
+    main { padding: 36px 24px; max-width: 940px; margin: auto; }
+    h1 { margin: 0 0 9px; font-size: clamp(25px, 4vw, 39px); }
+    p { color: #adb7c8; margin: 0 0 26px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .grid button { min-height: 100px; text-align: left; border: 1px solid #3b455a; background: #20293a; color: #fff; padding: 17px; border-radius: 12px; cursor: pointer; font: inherit; font-weight: bold; }
+    .grid button:hover, .grid button:focus-visible { border-color: #f3aa8f; background: #30384b; }
+    .grid span { display: block; color: #f3aa8f; font-size: 24px; margin-bottom: 8px; }
+    #player[hidden] { display: none; }
+    #player { width: 100%; height: calc(100vh - 71px); min-height: 550px; border: 0; background: white; }
+  </style>
+</head>
+<body>
+  <header><strong>✳ 작은 웹 실험들</strong><button id="back" type="button" hidden>← 목록으로</button></header>
+  <main id="gallery"><h1>하나씩 열어보세요.</h1><p>초기에 만들었던 웹 게임과 작은 도구를 모았습니다.</p><div class="grid">
+    <button type="button" data-file="박스피하기/index.html"><span>▣</span>박스피하기</button>
+    <button type="button" data-file="돌림돌림돌림판/index.html"><span>◉</span>돌림판</button>
+    <button type="button" data-file="계산기/index.html"><span>＋</span>계산기</button>
+    <button type="button" data-file="복권 번호/index.html"><span>✦</span>복권 번호</button>
+    <button type="button" data-file="점심 뽑기/index.html"><span>♨</span>점심 뽑기</button>
+    <button type="button" data-file="문서(table)/index.html"><span>▤</span>표 만들기</button>
+    <button type="button" data-file="문서(table)1/index.html"><span>▤</span>표 만들기 2</button>
+    <button type="button" data-file="문서(div)/index.html"><span>▤</span>문서 실험</button>
+  </div></main>
+  <iframe id="player" title="선택한 웹 실험" hidden></iframe>
+  <script>
+    const gallery = document.querySelector('#gallery');
+    const player = document.querySelector('#player');
+    const back = document.querySelector('#back');
+    document.querySelectorAll('[data-file]').forEach(button => button.addEventListener('click', () => {
+      player.src = `./${button.dataset.file}`;
+      player.title = `${button.textContent.trim()} 실행 화면`;
+      gallery.hidden = true;
+      player.hidden = false;
+      back.hidden = false;
+    }));
+    back.addEventListener('click', () => {
+      player.src = 'about:blank';
+      player.hidden = true;
+      gallery.hidden = false;
+      back.hidden = true;
+    });
+  </script>
+</body>
+</html>
