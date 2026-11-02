@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#eef0de">
+  <title>달빛골 · 나의 작은 계절</title>
+  <link rel="stylesheet" href="style.css?v=5.0">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="달빛골 홈"><span class="brand-mark">☾</span><span>달빛골<small>나의 농장 · 마을 · 바닷가</small></span></a>
+    <div class="calendar"><span id="weather" class="sun">☀</span><div><strong id="date"></strong><span id="clock"></span></div><span class="calendar-divider"></span><span id="gold" class="gold"></span></div>
+    <nav class="top-actions" aria-label="게임 메뉴"><button id="map-button" title="산책 지도 (M)" aria-label="산책 지도 (M)">지도</button><button id="audio-button" title="효과음 켜기" aria-label="효과음 켜기" aria-pressed="false">♫</button><button id="help-button" title="도움말" aria-label="도움말">?</button><button id="save-button" class="save-button">저장하기 <span>↗</span></button></nav>
+  </header>
+  <main>
+    <section class="heading"><div><p class="eyebrow">A LITTLE LIFE, A LITTLE MAGIC</p><h1>오늘도, 나의 속도로.</h1><p>작은 텃밭에서 시작되는 우리 마을 이야기</p></div><span class="place-label"><i></i> 달빛골 <span>·</span> <span id="location">남쪽 텃밭</span></span></section>
+    <div class="game-layout">
+      <section class="world-frame" aria-label="게임 화면">
+        <canvas id="world" width="1024" height="704" tabindex="0" aria-label="달빛골 마을. 방향키로 이동하고 E 키로 상호작용하세요."></canvas>
+        <div class="world-top"><div class="scene-controls"><span class="map-badge" id="scene-label">⌁ &nbsp; 달빛골 산책</span><button id="decorate-button" class="tend-button" title="가구 배치" aria-pressed="false" hidden>🪑 가구 배치</button></div><button id="tend-button" class="tend-button" title="선택한 도구로 밭을 차례대로 돌봐요">🌱 연속 작업</button><span class="energy"><span>기운</span><span class="energy-track"><i id="energy-fill"></i></span><b id="energy-value">100</b></span></div>
+        <button id="node-button" class="fishing-button" title="벌목·채광하기 · E" hidden>🪓 벌목하기</button>
+        <button id="fishing-button" class="fishing-button" title="낚시하기 · E (이동하면 취소)" hidden>🎣 낚시하기</button>
+        <section id="fishing-game" class="fishing-game" aria-label="물고기 따라가기 미니게임" hidden>
+          <div class="fishing-game-heading"><strong>🎣 물고기 따라가기 <small id="fishing-rod-level">기본 낚싯대</small></strong><span id="fishing-timer" aria-label="남은 시간">12초</span></div>
+          <p class="fishing-instructions">누르면 오른쪽 · 놓으면 왼쪽 · 초록 구역에 물고기를 유지하세요</p>
+          <div class="fishing-track" aria-hidden="true"><span id="fishing-zone"></span><span id="fishing-marker">🐟</span></div>
+          <div class="fishing-progress-row"><span id="fishing-tracking">잘 잡고 있어요!</span><div id="fishing-progress" role="progressbar" aria-label="포획 게이지" aria-valuemin="0" aria-valuemax="100" aria-valuenow="15"><i id="fishing-progress-fill"></i></div><b id="fishing-progress-value">15%</b></div>
+          <div class="fishing-game-actions"><button id="fishing-pull" type="button" aria-pressed="false">당기기 <kbd>Space</kbd> · 길게 누르기</button><button id="fishing-cancel" type="button">취소 <kbd>Esc</kbd></button></div>
+        </section>
+        <div id="interaction-hint" class="interaction-hint" aria-live="polite"></div>
+        <div class="world-bottom"><span>이동 <kbd>W A S D</kbd> / <kbd>방향키</kbd><span class="hint-sep">·</span> 대화·사용 <kbd>E</kbd></span><span>땅을 클릭해도 걸어가요 <span>↗</span></span></div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </section>
+      <aside class="sidebar">
+        <section class="journal"><div class="section-label"><span>OUR NEXT CHAPTER</span><span>✧</span></div><h2>함께 가꾸는 계절</h2><p class="subtext">작은 부탁이 모여, 온실이 열려요.</p><div id="quests"></div><button id="community-button" class="project-button"><span>⌂ 공동 온실 복구</span><strong id="community-progress"></strong><span class="project-track"><i id="community-fill"></i></span></button><button id="requests-button" class="text-button">주민 부탁 살펴보기 ↗</button></section>
+        <section class="neighbors"><div class="section-heading"><h2>이웃의 안부</h2><span>3명의 친구</span></div><div id="neighbors"></div></section>
+        <button id="bag-button" class="bag-button"><span><b>나의 배낭</b><small id="bag-summary"></small></span><span>↗</span></button>
+        <button id="storage-button" class="bag-button storage-button"><span><b>▣ 집 앞 창고</b><small id="storage-summary"></small></span><span>↗</span></button>
+        <button id="workshop-button" class="mail-button">⚒ 모루의 공방 · 도구 업그레이드 ↗</button>
+        <button id="mail-button" class="mail-button">✉ 이웃에게서 온 편지 <span id="mail-count">0</span></button>
+        <p id="save-status" class="save-status" aria-live="polite">마을에 온 걸 환영해요.</p>
+      </aside>
+    </div>
+    <section class="toolbar-area"><div class="toolbar-label"><strong>주머니 속 도구</strong><span>숫자키로 빠르게 선택하세요</span></div><div id="toolbar" class="toolbar" role="group" aria-label="도구 선택"></div><button id="rest-button" class="rest-button"><span>☾</span><span>하루 마무리<small>집으로 돌아가 쉬기</small></span></button></section>
+    <footer><span>작고 평범한 하루가 모여, 소중한 계절이 됩니다.</span><span>달빛골 <i>✦</i> EST. YOUR FIRST DAY</span></footer>
+    <div class="touch-controls" aria-label="터치 조작"><button data-move="up" aria-label="위로 이동">↑</button><button data-move="left" aria-label="왼쪽 이동">←</button><button data-move="down" aria-label="아래로 이동">↓</button><button data-move="right" aria-label="오른쪽 이동">→</button><button id="touch-action">사용 E</button></div>
+  </main>
+  <dialog id="modal"><div class="modal-top"><span id="modal-tag">DALBIT VILLAGE</span><button id="modal-close" aria-label="닫기">×</button></div><h2 id="modal-title"></h2><div id="modal-body"></div></dialog>
+  <script src="world.js?v=8.1"></script><script src="engine.js?v=8.1"></script><script src="render.js?v=8.1"></script><script src="app.js?v=8.1"></script>
+</body>
+</html>

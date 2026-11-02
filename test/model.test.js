@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { projects } from '../src/catalog.js';
-import { defaultTab, filterProjects, initialFile, rawFileUrl } from '../src/model.js';
+import { defaultTab, filterProjects, initialFile, rawFileUrl, projectFiles, githubProjectUrl } from '../src/model.js';
 
 function assertPreviewFolder(repo, letter) {
   const project = projects.find(item => item.repo === repo);
@@ -43,15 +43,32 @@ test('프로젝트 H는 웹 게임 실행 파일을 연다', () => {
   assertPreviewFolder('Web_Game', 'H');
 });
 
-test('catalog includes the fourteen requested repositories and excludes home', () => {
+test('catalog includes the original repositories and the two new games', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
     'dokkaebi-market', 'Dungeon-Auto-Legion', 'Gonu', 'haesol-metro',
     'k--', 'moneybook', 'moru-keugi', 'P.F', 'siwangjeon',
-    'unforgotten-night', 'Web_Game',
+    'unforgotten-night', 'Web_Game', 'GeonhoGit.github.io', 'GeonhoGit.github.io',
   ];
   assert.deepEqual(projects.map(project => project.repo).sort(), expected.sort());
   assert.ok(projects.every(project => project.repo !== 'home'));
+});
+
+test('new games point to their own playable folders', () => {
+  for (const [id, letter] of [['dalbit-village', 'I'], ['magic-league', 'J']]) {
+    const project = projects.find(item => item.id === id);
+    assert.equal(project.preview, `play/프로젝트 ${letter}/index.html`);
+    assert.equal(project.sourcePath, `play/프로젝트 ${letter}`);
+    assert.ok(existsSync(new URL(`../${project.preview}`, import.meta.url)), `${project.preview} must exist`);
+  }
+});
+
+test('file viewer limits same-repository projects to their own folders', () => {
+  const project = { repo: 'GeonhoGit.github.io', branch: 'main', sourcePath: 'play/프로젝트 I' };
+  const files = [{ type: 'blob', path: 'play/프로젝트 I/index.html' }, { type: 'blob', path: 'play/프로젝트 II/index.html' }, { type: 'tree', path: 'play/프로젝트 I/js' }];
+  assert.deepEqual(projectFiles(project, files).map(file => file.path), ['play/프로젝트 I/index.html']);
+  assert.equal(githubProjectUrl(project), 'https://github.com/GeonhoGit/GeonhoGit.github.io/tree/main/play/%ED%94%84%EB%A1%9C%EC%A0%9D%ED%8A%B8%20I');
+  assert.equal(githubProjectUrl({ repo: 'Gonu', branch: 'main' }), 'https://github.com/GeonhoGit/Gonu');
 });
 
 test('playable work opens on preview and native work opens on files', () => {

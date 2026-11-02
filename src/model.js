@@ -27,6 +27,17 @@ function encodedPath(path) {
   return parts.map(encodeURIComponent).join('/');
 }
 
+export function projectFiles(project, tree) {
+  const prefix = project.sourcePath ? `${project.sourcePath}/` : '';
+  return tree.filter(item => item.type === 'blob' && item.path.startsWith(prefix))
+    .sort((a, b) => a.path.localeCompare(b.path, 'ko'));
+}
+
+export function githubProjectUrl(project) {
+  const base = `https://github.com/GeonhoGit/${encodeURIComponent(project.repo)}`;
+  return project.sourcePath ? `${base}/tree/${encodeURIComponent(project.branch)}/${encodedPath(project.sourcePath)}` : base;
+}
+
 export function rawFileUrl(project, path) {
   return `https://raw.githubusercontent.com/GeonhoGit/${encodeURIComponent(project.repo)}/${encodeURIComponent(project.branch)}/${encodedPath(path)}`;
 }

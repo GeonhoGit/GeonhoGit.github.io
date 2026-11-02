@@ -1,5 +1,5 @@
-import { projects } from './catalog.js?v=4';
-import { defaultTab, filterProjects, githubFileUrl, initialFile, rawFileUrl } from './model.js';
+import { projects } from './catalog.js?v=5';
+import { defaultTab, filterProjects, githubFileUrl, initialFile, rawFileUrl, projectFiles, githubProjectUrl } from './model.js?v=5';
 
 const root = document.querySelector('#app');
 const treeCache = new Map();
@@ -19,7 +19,7 @@ function html(value) {
 }
 
 function repoUrl(project) {
-  return `https://github.com/GeonhoGit/${encodeURIComponent(project.repo)}`;
+  return githubProjectUrl(project);
 }
 
 function parseProjectRoute() {
@@ -57,7 +57,7 @@ function renderHome() {
     <h1 id="hero-title">아이디어가<br><em>화면이 되는 곳<span class="period">.</span></em></h1>
     <p class="hero-description">게임을 만들고, 앱을 다듬고, 가끔은 작은 호기심을 코드로 남깁니다. 지금까지 만든 작업을 한곳에서 열어보세요.</p>
     <a class="hero-button" href="#works">작업 둘러보기 <span aria-hidden="true">↘</span></a></div>
-    <div class="hero-visual" aria-hidden="true"><div class="hero-window"><div class="window-top"><span></span><span></span><span></span><b>WORK IN PROGRESS</b></div><div class="window-display"><div class="display-grid"></div><span class="display-glyph">G</span><span class="display-cross cross-one">+</span><span class="display-cross cross-two">+</span><span class="display-caption">PLAY · BUILD · REPEAT</span></div><div class="window-footer"><span>GEONHO / WORKSHOP</span><span>001 — 014</span></div></div><span class="visual-spark spark-one">✳</span><span class="visual-spark spark-two">✦</span></div>
+    <div class="hero-visual" aria-hidden="true"><div class="hero-window"><div class="window-top"><span></span><span></span><span></span><b>WORK IN PROGRESS</b></div><div class="window-display"><div class="display-grid"></div><span class="display-glyph">G</span><span class="display-cross cross-one">+</span><span class="display-cross cross-two">+</span><span class="display-caption">PLAY · BUILD · REPEAT</span></div><div class="window-footer"><span>GEONHO / WORKSHOP</span><span>001 — ${String(projects.length).padStart(3, '0')}</span></div></div><span class="visual-spark spark-one">✳</span><span class="visual-spark spark-two">✦</span></div>
   </section>
   <section class="stat-row" aria-label="작업 통계"><div><strong>${projects.length.toString().padStart(2, '0')}</strong><span>전체 프로젝트</span></div><div><strong>${webCount.toString().padStart(2, '0')}</strong><span>바로 실행 가능</span></div><div><strong>∞</strong><span>계속 이어지는 작업</span></div></section>
   <section id="works" class="works-section" aria-labelledby="works-title"><div class="section-heading"><div><div class="section-kicker">THE COLLECTION <span>↗</span></div><h2 id="works-title">만든 것들<span class="period">.</span></h2></div><p>마음에 드는 작업을 골라 직접 열어보세요.</p></div>
@@ -127,7 +127,7 @@ async function loadTree(project) {
     if (!response.ok) throw new Error(`GitHub 응답 ${response.status}`);
     const data = await response.json();
     if (!Array.isArray(data.tree)) throw new Error('파일 목록 형식이 올바르지 않습니다.');
-    treeCache.set(project.id, data.tree.filter(item => item.type === 'blob').sort((a, b) => a.path.localeCompare(b.path, 'ko')));
+    treeCache.set(project.id, projectFiles(project, data.tree));
     if (activeProject?.id !== project.id || activeTab !== 'files') return;
     renderFileList(project);
     if (!selectedFile) chooseInitialFile(project);

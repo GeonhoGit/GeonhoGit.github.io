@@ -1,5 +1,19 @@
 export const projects = [
   {
+    id: 'dalbit-village', repo: 'GeonhoGit.github.io', branch: 'main',
+    title: '달빛골', eyebrow: '생활 · 농장', category: 'web',
+    description: '농사와 낚시를 즐기고 동물 이웃과 마을을 가꾸는 생활 게임.',
+    tags: ['JavaScript', 'Canvas', '게임'], icon: '☘', tone: 'mint',
+    preview: 'play/프로젝트 I/index.html', sourcePath: 'play/프로젝트 I',
+  },
+  {
+    id: 'magic-league', repo: 'GeonhoGit.github.io', branch: 'main',
+    title: '마법학교 대항전', eyebrow: '경영 · 자동 전투', category: 'web',
+    description: '학생을 키우고 마법을 골라 3대3 자동 전투를 치르는 경영 게임.',
+    tags: ['JavaScript', '전략', '게임'], icon: '✧', tone: 'violet',
+    preview: 'play/프로젝트 J/index.html', sourcePath: 'play/프로젝트 J',
+  },
+  {
     id: 'cursed-relic-hunter-3d', repo: 'cursed-relic-hunter-3d', branch: 'main',
     title: '저주받은 유물 사냥꾼', eyebrow: '3D FPS · 로그라이트', category: 'web',
     description: '유적을 탐험하고 유물을 모으며 세 지역의 보스에 도전하는 1인칭 게임.',
