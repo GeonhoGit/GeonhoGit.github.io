@@ -9,7 +9,7 @@ function startBattle(){
   const team = (ti, sc) => D.picks[ti].map((p,i) => ({champ:p.champ, st:D.stById[p.sid], slot:ti === 0 ? formationOf()[i] : i, bonus: teamBonus(sc, true) + (ti === 0 ? chemBonus(p.sid, D.picks[0].map(q => q.sid)) : 0)}));
   B = newBattle([team(0, my), team(1, op)], D.map, D.strategies);
   B.autoTac[0] = !!S.autoTacticPref;
-  V.view = 'battle'; speed = S.speedPref || 1; render();
+  V.view = 'battle'; speed = S.speedPref || 1; render(); window.scrollTo(0,0);
 }
 function viewBattle(){
   const op = school(D.opp);
@@ -65,7 +65,7 @@ function onBattleOver(){
 }
 function toResult(){
   clearTimeout(resultTimer); stopLoop();
-  V.view = 'result'; render();
+  V.view = 'result'; render(); window.scrollTo(0,0);
 }
 function hud(){
   const s0 = document.getElementById('s0'); if (!s0) return;

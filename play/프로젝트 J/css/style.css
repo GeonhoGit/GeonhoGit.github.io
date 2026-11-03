@@ -495,7 +495,7 @@ tr.me td:first-child{box-shadow:inset 3px 0 0 var(--brass)}
 .highlights li{padding:.3rem 0;line-height:1.5}
 .strategy-intel{margin:.6rem 0;padding:.6rem 0;border-bottom:1px solid var(--line)}
 .specialization summary{cursor:pointer;color:var(--brass-l)}
-.mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.6rem}
+.mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:.6rem}
 .mapgrid .mapcard{margin:0;flex-direction:column;align-items:stretch}
 .mapgrid .mapcard .minimap{width:100%;height:auto}
 @media (max-width:560px){ .mapcard .minimap{width:96px;height:auto} .mapcard{gap:.55rem} }
@@ -548,6 +548,8 @@ nav button:hover{background:rgba(255,255,255,.04)}
   .layout{grid-template-columns:168px minmax(0,1fr)}
   nav button{font-size:.94rem;padding:.42rem .5rem;gap:.45rem}
   nav .seal{width:1.75rem;height:1.75rem;font-size:.9rem}
+  .train-row{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}
+  .train-row .tr-pick{grid-column:1/-1}
 }
 /* 좁은 화면(휴대폰): 메뉴는 위쪽 가로 줄, 본관은 한 줄 */
 @media (max-width:860px){
@@ -599,3 +601,14 @@ nav button:hover{background:rgba(255,255,255,.04)}
 .help-item[open]{border-left-color:var(--brass);background:linear-gradient(180deg,rgba(227,196,126,.06),transparent 90px),var(--panel)}
 @media (max-width:860px){ .help-steps{grid-template-columns:1fr 1fr} .help-item summary{padding:.65rem .8rem} }
 @media (max-width:860px){ .help-toc{flex-wrap:wrap;overflow:visible;gap:.4rem} .help-toc button{font-size:.88rem;padding:.25rem .7rem .25rem .3rem} .help-toc .seal{width:1.5rem;height:1.5rem;font-size:.8rem} }
+
+/* ---------- 시작 화면: 좁은 휴대폰·큰 글자 설정에서도 잘리지 않게 ---------- */
+.start{grid-template-columns:minmax(0,1fr);justify-items:center;padding:clamp(.75rem, 4vw, 2rem)}
+.start-card{min-width:0}
+.field input{width:100%;min-width:0}
+.start .row{flex-wrap:wrap}
+@media (max-width:860px){
+  .diffpick button{min-width:0;flex:1 1 0}
+  .start-card{padding:1.3rem clamp(.9rem, 4vw, 1.4rem)}
+  .start .row .btn{flex:1 1 auto}
+}
