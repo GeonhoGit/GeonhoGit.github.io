@@ -7,7 +7,7 @@ let raf = 0, speed = 1, frame = 0, ctx = null, resultTimer = 0, lastFrame = null
 function startBattle(){
   const my = me(), op = school(D.opp);
   const team = (ti, sc) => D.picks[ti].map((p,i) => ({champ:p.champ, st:D.stById[p.sid], slot:ti === 0 ? formationOf()[i] : i, bonus: teamBonus(sc, true) + (ti === 0 ? chemBonus(p.sid, D.picks[0].map(q => q.sid)) : 0)}));
-  B = newBattle([team(0, my), team(1, op)], D.map);
+  B = newBattle([team(0, my), team(1, op)], D.map, D.strategies);
   B.autoTac[0] = !!S.autoTacticPref;
   V.view = 'battle'; speed = S.speedPref || 1; render();
 }
@@ -22,6 +22,9 @@ function viewBattle(){
     </div>
     <div class="spread" style="margin-bottom:.5rem;align-items:flex-start">${synHtml(B.els[0])}${synHtml(B.els[1], true)}</div>
     <p class="mapline"><b>${MAPS[B.map].n}</b> <span class="muted">${MAPS[B.map].d}</span></p>
+    <p class="muted" style="font-size:.85rem">우리 전술: ${STRATEGIES[strategyKey(B.strategies[0])].n} · 상대 전술: ${STRATEGIES[strategyKey(B.strategies[1])].n}</p>
+    <div id="cooperation-state">${cooperationStateHtml(B)}</div>
+    <div id="battle-highlight" class="battle-highlight" role="status" hidden></div>
     <div class="canvas-wrap ${nar ? 'portrait' : ''}"><canvas id="cv" width="${nar ? H : W}" height="${nar ? W : H}" aria-label="자동 전투 화면${nar ? ', 우리 진영이 아래' : ''}"></canvas></div>
     ${nar ? tacticBar() : ''}
     <div class="spread" style="margin-top:.6rem">
@@ -74,6 +77,9 @@ function hud(){
   document.getElementById('units').innerHTML = col(0) + col(1);
   tacticState();
   battleControlState();
+  highlightState();
+  const cooperation = document.getElementById('cooperation-state');
+  if (cooperation) cooperation.innerHTML = cooperationStateHtml(B);
 }
 function battleControlState(){
   const pause = document.getElementById('pauseBtn'), auto = document.getElementById('autoTacticBtn'), mode = document.getElementById('battleMode');

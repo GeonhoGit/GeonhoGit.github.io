@@ -19,26 +19,28 @@ function aiFatigue(sc, playedIds){
   if (!sc || sc.player) return;
   sc.students.forEach(st => { st.cond = clamp(st.cond + (playedIds.includes(st.id) ? -10 : 12), 30, 100); });
 }
-function quickSim(a, b){ // AI끼리 경기
+function quickSim(a, b, isFinal = false){ // AI끼리 경기
   const savedDraft = D, teams = Math.random() < .5 ? [a,b] : [b,a];
   const stById = {};
   teams.forEach(sc => sc.students.forEach(st => stById[st.id] = st));
-  D = {bans:[[],[]], picks:[[],[]], roster:teams.map(sc => sc.students.map(st => st.id)), stById};
+  D = {bans:[[],[]], picks:[[],[]], roster:teams.map(sc => sc.students.map(st => st.id)), stById, strategies:teams.map(schoolStrategy)};
   try {
+    if (isFinal) prepareFinalDraft(D, teams.map(sc => sc.id));
     for (const [team, kind] of [[0,'ban'],[1,'ban'],[0,'pick'],[1,'pick'],[1,'pick'],[0,'pick'],[0,'pick'],[1,'pick']]){
       const champ = aiChoose(team, kind);
       if (kind === 'ban') D.bans[team].push(champ);
       else D.picks[team].push({champ, sid:aiAssign(team, champ)});
     }
     teams.forEach((sc, t) => addIntel(sc.id, D.picks[t].map(p => p.champ), D.bans[t]));
-    const battle = newBattle(teams.map((sc, team) => D.picks[team].map(p => ({champ:p.champ, st:stById[p.sid], bonus:teamBonus(sc, false)}))), pickMap());
+    const battle = newBattle(teams.map((sc, team) => D.picks[team].map(p => ({champ:p.champ, st:stById[p.sid], bonus:teamBonus(sc, false)}))), pickMap(), D.strategies);
     runHeadless(battle);
+    if (isFinal) recordFinalScout(battle, teams.map(sc => sc.id));
     teams.forEach((sc, t) => aiFatigue(sc, D.picks[t].map(p => p.sid)));
     const winner = battle.winner, loser = 1 - winner;
     return {win:teams[winner], lose:teams[loser], ks:battle.score[winner], kl:battle.score[loser]};
   } finally { D = savedDraft; }
 }
-function nextCondition(st, played){ return condAfter(st, played); }
+function nextCondition(st, played){ return policyCondition(st, played, condAfter(st, played)); }
 function growStudent(st, focus, scale){
   const yf = [1.3, 1.1, .9, .7][st.year-1] || .7;
   const g = rnd(.4, 1.6) * (.6 + st.pot*.2) * yf * scale * traitGrow(st);
@@ -54,9 +56,11 @@ function progressStudents(res, iw){
     const r = st.rec = st.rec || {g:0, w:0, k:0, d:0, mvp:0}; r.g++; if (iw) r.w++; r.k += x.k; r.d += x.d; if (res.mvp === x.sid) r.mvp++;
     if (!x.champ) return;
     st.mastery = st.mastery || {};
+    const couldSpecialize = specializationReady(st);
     const before = mastLv(st, x.champ);
-    st.mastery[x.champ] = (st.mastery[x.champ] || 0) + R((10 + x.k*2 + (iw ? 5 : 0)) * (1 + facLv('library')*.2));
+    st.mastery[x.champ] = (st.mastery[x.champ] || 0) + R((10 + x.k*2 + (iw ? 5 : 0)) * (1 + facLv('library')*.2) * policyMasteryMult());
     const after = mastLv(st, x.champ);
+    if (!couldSpecialize && specializationReady(st)) ups.push(`${st.name}의 성장 방향을 선택할 수 있습니다. 학생 화면에서 전문화를 골라 주세요.`);
     if (after > before){
       ups.push(`${st.name}의 ${CH[x.champ].n} 숙련도가 Lv${after}이 됐습니다.`);
       if (after >= 3 && !st.fav.includes(x.champ) && st.fav.length < 4){
@@ -66,12 +70,13 @@ function progressStudents(res, iw){
       }
     }
   });
+  ups.push(...progressMentorship(res));
   // 컨디션과 훈련
   my.students.forEach(st => {
     const played = res.starters.includes(st.id);
     st.cond = nextCondition(st, played);
     st.last = null;
-    if (st.train && st.train !== 'rest'){ const g = growStudent(st, st.train, facGrowMult(st.train)); st.last = {k:st.train, g}; }
+    if (st.train && st.train !== 'rest'){ const g = growStudent(st, st.train, facGrowMult(st.train) * policyGrowthMult(st)); st.last = {k:st.train, g}; }
   });
   S.schools.slice(1).forEach(sc => sc.students.forEach(st => growStudent(st, pick(['atk','def','int']), diff().grow * aiGrowRamp() * aiCatchUp(sc))));
   V.growth = my.students.map(st => { const b = snap[st.id]; if (!b) return null;
@@ -81,6 +86,8 @@ function progressStudents(res, iw){
   ups.push(...weeklyMorale(res, iw));
   recordStats(res, iw);
   ups.push(...awakeCheck(snap));
+  ups.push(...updateStories(res, iw));
+  S.schools.forEach(assignAISpecialization);
   S.trainSet = false; V.trainDraft = {};  // 이번 훈련 끝, 다음 주 계획은 다시 확정
   return ups;
 }
@@ -117,6 +124,7 @@ function standings(){
   return [...S.schools].sort((a,b) => b.w - a.w || b.kd - a.kd);
 }
 function endSeason(){
+  finishSeasonStories();
   const st = finalRanking(), rank = st.findIndex(s => s.player) + 1;
   settleGoals(rank);
   const prize = seasonPrize(rank);
@@ -186,6 +194,8 @@ function endSeason(){
 }
 function startNextSeason(){
   S.season++; S.week = 0; S.phase = 'hub'; S.final = null;
+  resetSeasonPolicy();
+  storiesOf();
   unlockExpansion();
   unlockExpansion2();
   rollPatch(); newSeasonTable();
@@ -199,13 +209,13 @@ function startFinal(){
   const [a, b] = standings();
   S.final = {a:a.id, b:b.id, wins:{[a.id]:0, [b.id]:0}, games:[], winner:null};
   addNews(`정규 리그 종료. 결승은 ${a.name} 대 ${b.name}, 3판 2선승제입니다.`);
-  if (a.player || b.player) S.phase = 'final';
-  else { simFinal(); S.phase = 'season_end'; }
+  S.phase = 'final';
+  if (!a.player && !b.player){ simFinal(); S.phase = 'season_end'; }
 }
 function simFinal(){
   const F = S.final;
   while (F.winner == null){
-    const r = quickSim(school(F.a), school(F.b));
+    const r = quickSim(school(F.a), school(F.b), true);
     F.wins[r.win.id]++; F.games.push({w:r.win.id, sw:r.ks, sl:r.kl});
     if (F.wins[r.win.id] >= 2) F.winner = r.win.id;
   }
@@ -214,6 +224,7 @@ function simFinal(){
 }
 function applyFinal(res){
   const F = S.final, opp = school(res.opp), iw = res.winner === 0;
+  recordFinalScout(B, [0,res.opp]);
   F.wins[iw ? 0 : opp.id]++;
   F.games.push({w: iw ? 0 : opp.id, sw:Math.max(...res.score), sl:Math.min(...res.score)});
   S.gold += iw ? 150 : 60; S.fame += iw ? 12 : 4;

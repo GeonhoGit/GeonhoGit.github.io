@@ -20,7 +20,7 @@ function intelHtml(id, compact){
   const picks = topKeys(r.picks, 3), bans = topKeys(r.bans, 2);
   const pickTxt = r.games ? (picks.length ? picks.map(c => `<span style="color:${EL[CH[c].e].c}">${CH[c].n}</span> <span class="muted num">${r.picks[c]}회</span>`).join(', ') : '-') : '<span class="muted">아직 기록 없음</span>';
   const banTxt = r.games ? (bans.length ? bans.map(c => `${CH[c].n} <span class="muted num">${r.bans[c]}회</span>`).join(', ') : '-') : '<span class="muted">아직 기록 없음</span>';
-  return `<dl class="intel ${compact ? 'compact' : ''}">
+  return `${strategyIntelHtml(sc)}<dl class="intel ${compact ? 'compact' : ''}">
     <dt>자주 고름</dt><dd>${pickTxt}</dd>
     <dt>자주 금지</dt><dd>${banTxt}</dd>
     <dt>에이스</dt><dd>${esc(ace.name)} <span class="ovr num" style="font-size:1rem">${R(ovr(ace))}</span> ${elChip(ace.elem)} ${compact ? '' : traitChips(ace)}<br><span class="muted" style="font-size:.82rem">주력 ${ace.fav.map(f => CH[f].n).join(', ')}</span></dd>

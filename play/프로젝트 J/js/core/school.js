@@ -105,7 +105,7 @@ function viewFacility(){
         ${max ? '<p class="good" style="font-size:.9rem">최고 단계입니다.</p>' : `<p style="font-size:.9rem" class="muted">다음 단계: <span class="good">${f.eff(FAC_POW[lv+1])}</span></p>
         <button class="btn small" data-a="upgrade" data-v="${k}" ${S.gold >= cost ? '' : 'disabled'}><span class="coin"></span>${cost} 들여 ${lv+1}단계로</button>`}
       </section>`; }).join('')}</div>
-    ${investHtml()}${shopHtml()}`;
+    ${investHtml()}${mentorshipHtml()}${shopHtml()}`;
 }
 
 /* ---------- 특별 투자 (후반 골드 사용처) ---------- */

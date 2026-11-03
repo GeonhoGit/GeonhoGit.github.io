@@ -33,12 +33,13 @@ function draftScore(team, id){
   if (c.role === '수호' && !roles.includes('수호')) s += 8;
   if (c.role === '치유' && !roles.includes('치유') && roles.length >= 1) s += 7;
   if (roles.includes(c.role)) s -= 7;
+  s += strategyDraftBonus(D.strategies && D.strategies[team], id);
   return s;
 }
 function aiChoose(team, kind){
   let best = null, bs = -1e9;
   for (const id of available()){
-    const s = (kind === 'ban' ? draftScore(1-team, id) : draftScore(team, id)) + rnd(0, 9);
+    const s = (kind === 'ban' ? draftScore(1-team, id) + finalBanBonus(team, id) : draftScore(team, id)) + rnd(0, 9);
     if (s > bs){ bs = s; best = id; }
   }
   return best;

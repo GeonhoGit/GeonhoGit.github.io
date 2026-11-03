@@ -488,7 +488,114 @@ tr.me td:first-child{box-shadow:inset 3px 0 0 var(--brass)}
 .tchip{font-size:.78rem;padding:.08rem .45rem;border-radius:999px;border:1px solid var(--tc);color:var(--tc);background:color-mix(in srgb, var(--tc) 12%, transparent)}
 .mapline{font-size:.88rem;margin:0 0 .5rem}
 .mapline b{color:var(--brass-l);font-weight:400}
+.battle-highlight{margin:.5rem 0;padding:.65rem .9rem;border-left:3px solid var(--brass);background:rgba(227,196,126,.1);color:var(--brass-l);font-size:.95rem;overflow-wrap:anywhere}
+.battle-highlight[hidden]{display:none}
+.highlights{margin-bottom:1rem}
+.highlights ol{margin:.5rem 0;padding-left:1.3rem}
+.highlights li{padding:.3rem 0;line-height:1.5}
+.strategy-intel{margin:.6rem 0;padding:.6rem 0;border-bottom:1px solid var(--line)}
+.specialization summary{cursor:pointer;color:var(--brass-l)}
 .mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.6rem}
 .mapgrid .mapcard{margin:0;flex-direction:column;align-items:stretch}
 .mapgrid .mapcard .minimap{width:100%;height:auto}
 @media (max-width:560px){ .mapcard .minimap{width:96px;height:auto} .mapcard{gap:.55rem} }
+
+/* ---------- 밴픽 위쪽: 전장과 팀 전술을 한 줄로 ---------- */
+.draft-top{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:.7rem;margin-bottom:.7rem;align-items:stretch}
+.draft-top .mapcard{margin:0}
+.strat-pick{border:1px solid rgba(227,196,126,.25);border-radius:10px;padding:.5rem .75rem;background:linear-gradient(90deg,rgba(227,196,126,.06),rgba(227,196,126,0))}
+.strat-pick .strat-title{color:var(--brass-l);font-weight:400;font-family:"Song Myung",serif;font-size:1.02rem}
+@media (max-width:860px){ .draft-top{grid-template-columns:1fr;gap:.5rem} }
+
+/* =========================================================
+   창 크기에 맞춰 늘어나고 줄어드는 배치
+   ========================================================= */
+/* 글자 크기: 창이 넓을수록 조금씩 커짐 (작은 노트북 ≈17px, 큰 모니터 ≈20px) */
+html{font-size:clamp(16.5px, .34vw + 13.8px, 20px)}
+/* 본문: 예전에는 1180px에서 멈췄지만 이제 넓은 화면도 채웁니다 */
+main{max-width:1840px;padding:clamp(1rem, 1.6vw, 2.2rem) clamp(1rem, 2vw, 2.6rem) 3rem}
+.grid2{grid-template-columns:minmax(0,1fr) clamp(280px, 27vw, 440px)}
+
+/* 왼쪽 메뉴: 묶음 제목, 큰 글자, 스크롤해도 따라옴 */
+nav{position:sticky;top:var(--top-h, 76px);align-self:start;max-height:calc(100vh - var(--top-h, 76px));overflow-y:auto;gap:.15rem;padding:.9rem .7rem 1rem}
+.layout{grid-template-columns:clamp(200px, 14vw, 240px) minmax(0,1fr)}
+.hub-grid .stack > *{margin-top:0;margin-bottom:0}
+nav .nav-group{font-size:.74rem;letter-spacing:.12em;color:var(--brass-d);margin:.85rem .55rem .25rem;padding-bottom:.2rem;border-bottom:1px solid rgba(227,196,126,.14)}
+nav .nav-group:first-child{margin-top:.1rem}
+nav button{font-size:1rem;padding:.5rem .6rem;color:#c9cbe4;border-radius:6px}
+nav button .lbl{overflow:hidden;text-overflow:ellipsis}
+nav .seal{width:2rem;height:2rem;font-size:1rem}
+nav button:hover{background:rgba(255,255,255,.04)}
+
+/* 본관: 위 = 이번 경기, 가운데 = 학교 현황, 오른쪽 = 상대·소식 */
+.hub-grid{display:grid;gap:1.2rem;align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,.82fr);grid-template-areas:"a c" "b c";grid-template-rows:auto 1fr}
+.hub-a{grid-area:a}.hub-b{grid-area:b}.hub-c{grid-area:c}
+.hub-b,.hub-c{align-self:start}
+@media (min-width:1500px){ .hub-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,.9fr);grid-template-areas:"a b c";grid-template-rows:auto} }
+.next-match{border-color:var(--brass-d);background:linear-gradient(120deg,rgba(227,196,126,.13),rgba(227,196,126,0) 55%),var(--panel)}
+.next-match h2{font-size:clamp(1.5rem, 1.6vw, 2rem)}
+.btn.big-go{font-size:1.08rem;padding:.75rem 1.5rem}
+.policy-pick{display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem}
+.policy-opt{display:grid;grid-template-columns:6.2em minmax(0,1fr);align-items:center;gap:.8rem;white-space:normal;text-align:left;padding:.6rem .8rem;line-height:1.45}
+.policy-opt b{color:var(--brass-l);font-size:1rem}
+.policy-opt span{font-size:.84rem;color:var(--muted)}
+
+/* 전투 화면: 넓은 창에서도 한 화면 안에 들어오게 높이 기준으로 제한 */
+.canvas-wrap:not(.portrait){max-width:min(100%, calc((100vh - var(--top-h, 76px) - 210px) * 1.9));margin-inline:auto}
+
+/* 중간 폭(태블릿·작은 창): 메뉴를 조금 좁게 */
+@media (max-width:1100px) and (min-width:861px){
+  .layout{grid-template-columns:168px minmax(0,1fr)}
+  nav button{font-size:.94rem;padding:.42rem .5rem;gap:.45rem}
+  nav .seal{width:1.75rem;height:1.75rem;font-size:.9rem}
+}
+/* 좁은 화면(휴대폰): 메뉴는 위쪽 가로 줄, 본관은 한 줄 */
+@media (max-width:860px){
+  html{font-size:16.5px}
+  .layout{grid-template-columns:minmax(0,1fr)}
+  nav{position:static;max-height:none;overflow-x:auto;overflow-y:hidden;padding:.4rem;gap:.2rem}
+  nav .nav-group{display:none}
+  nav button{font-size:.92rem;padding:.3rem .5rem}
+  nav .seal{width:1.5rem;height:1.5rem;font-size:.8rem}
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .hub-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"a" "b" "c";grid-template-rows:auto}
+  .policy-opt{grid-template-columns:minmax(0,1fr);gap:.2rem}
+  main{padding:1rem}
+}
+/* 아주 넓은 창: 훈련 카드를 두 줄로 나란히 */
+@media (min-width:1640px){
+  .train-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
+  .train-list .train-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin:0}
+  .train-list .tr-pick{grid-column:1/-1}
+}
+.layout.full > main{max-width:1680px;margin-inline:auto}
+
+/* =========================================================
+   도움말: 탭 + 접히는 주제 카드
+   ========================================================= */
+.help-toc{gap:.5rem;margin-bottom:1.2rem}
+.help-toc button{font-size:.98rem;padding:.35rem .9rem .35rem .35rem}
+.help-toc button .cnt{font-size:.75rem;color:var(--muted);margin-left:.15rem;min-width:1.3em;text-align:center;border-radius:999px;background:rgba(255,255,255,.06);padding:0 .35rem}
+.help-toc button[aria-selected="true"]{border-color:var(--brass);color:#2a1c05;background:var(--gilt);box-shadow:0 0 12px rgba(227,196,126,.3)}
+.help-toc button[aria-selected="true"] .seal{background:#2a1c05;color:var(--brass-l);border-color:#2a1c05}
+.help-toc button[aria-selected="true"] .cnt{color:#2a1c05;background:rgba(42,28,5,.12)}
+.help-toc button.dim{opacity:.55}
+.help-cat{margin-bottom:1.4rem}
+.help-steps{list-style:none;padding:0;margin:0 0 1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.6rem;max-width:none;counter-reset:none}
+.help-steps li{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:.6rem;align-items:center;background:rgba(227,196,126,.07);border:1px solid rgba(227,196,126,.25);border-radius:6px;padding:.6rem .75rem}
+.help-steps .num{grid-row:1 / span 2;width:1.9rem;height:1.9rem;display:grid;place-items:center;border-radius:50%;background:var(--gilt);color:#2a1c05;font-weight:700}
+.help-steps .hs-k{color:var(--brass-l);font-size:1rem}
+.help-steps li > span:last-child{font-size:.86rem;color:#d6d3ea;line-height:1.45}
+.help-items{grid-template-columns:repeat(auto-fill,minmax(min(100%, 340px),1fr));gap:.7rem;align-items:start}
+.help-item{padding:0;border-left-width:3px}
+.help-item summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;grid-template-areas:"t m" "s m";column-gap:.6rem;padding:.75rem .95rem}
+.help-item summary::-webkit-details-marker{display:none}
+.help-item summary::after{content:"＋";grid-area:m;align-self:center;color:var(--brass);font-size:1.1rem;transition:transform .15s}
+.help-item[open] summary::after{content:"－"}
+.help-item summary:hover .hi-t{color:#fff3cf}
+.help-item .hi-t{grid-area:t;font-family:'Song Myung',serif;font-size:1.12rem;color:var(--brass-l)}
+.help-item .hi-sum{grid-area:s;font-size:.94rem;color:#d6d3ea;line-height:1.5}
+.help-item ul{margin:0;padding:.1rem 1rem .85rem 2.1rem;border-top:1px dashed rgba(227,196,126,.18);padding-top:.6rem;gap:.35rem;font-size:.92rem}
+.help-item[open]{border-left-color:var(--brass);background:linear-gradient(180deg,rgba(227,196,126,.06),transparent 90px),var(--panel)}
+@media (max-width:860px){ .help-steps{grid-template-columns:1fr 1fr} .help-item summary{padding:.65rem .8rem} }
+@media (max-width:860px){ .help-toc{flex-wrap:wrap;overflow:visible;gap:.4rem} .help-toc button{font-size:.88rem;padding:.25rem .7rem .25rem .3rem} .help-toc .seal{width:1.5rem;height:1.5rem;font-size:.8rem} }

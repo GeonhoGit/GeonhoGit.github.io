@@ -33,8 +33,12 @@ function aiTactics(B, team){
   const hpAvg = mine.length ? mine.reduce((s,u) => s + u.hp/u.maxHp, 0) / mine.length : 1;
   const behind = B.score[team] < B.score[1-team], late = B.t >= B.dur - 12;
   const can = k => !T.used.includes(k);
-  if (can('regroup') && mine.length >= 2 && hpAvg < .38 && B.t < B.dur - 5) return useTactic(B, team, 'regroup');
+  const strategy = B.strategies && B.strategies[team];
+  if (can('regroup') && mine.length >= 2 && hpAvg < (strategy === 'protect' ? .5 : .38) && B.t < B.dur - 5) return useTactic(B, team, 'regroup');
   if (can('guard') && tacOn(B, 1-team, 'focus')) return useTactic(B, team, 'guard');
+  if (strategy === 'pressure' && can('focus') && B.t >= 12 && mine.some(u => foes(B,u).some(f => dist(u,f) < 230))) return useTactic(B, team, 'focus');
+  if (strategy === 'protect' && can('guard') && B.t >= 10 && hpAvg < .7) return useTactic(B, team, 'guard');
+  if (strategy === 'kite' && can('surge') && B.t >= 18 && mine.filter(u => u.sk > u.scd*.45).length >= 2) return useTactic(B, team, 'surge');
   if (can('focus') && behind && B.t > 22) return useTactic(B, team, 'focus');
   if (late){ for (const k of ['focus','surge','guard']) if (can(k)) return useTactic(B, team, k); }
 }

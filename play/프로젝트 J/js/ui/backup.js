@@ -13,6 +13,7 @@ function parseSave(text){
   return s;
 }
 function loadBackup(text){
+  V.importDraft = text;
   let s;
   try { s = parseSave(text); } catch(e){ V.importErr = '저장 코드나 파일을 읽을 수 없습니다. 내보낸 내용을 빠짐없이 붙여 넣었는지 확인하세요.'; render(); return false; }
   S = s; migrate(S); applyExpansion(); unlockExpansion(); save();
@@ -21,7 +22,7 @@ function loadBackup(text){
   return true;
 }
 function importBoxHtml(btnAction, btnLabel){
-  return `<textarea id="importText" class="code-box" rows="5" placeholder="저장 코드(ML1:로 시작)나 저장 파일 내용을 붙여 넣으세요."></textarea>
+  return `<textarea id="importText" class="code-box" rows="5" aria-label="불러올 저장 코드" placeholder="저장 코드(ML1:로 시작)나 저장 파일 내용을 붙여 넣으세요.">${esc(V.importDraft || '')}</textarea>
     <div class="row" style="margin-top:.5rem"><label class="btn ghost small file-btn">저장 파일 고르기<input type="file" id="importFile" accept=".json,.txt,application/json,text/plain" hidden></label>
     <button class="btn small" data-a="${btnAction}">${btnLabel}</button></div>
     ${V.importErr ? `<p class="bad" style="font-size:.88rem;margin-top:.4rem">${esc(V.importErr)}</p>` : ''}`;

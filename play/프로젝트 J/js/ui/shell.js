@@ -8,9 +8,11 @@ const root = document.getElementById('root');
 const CREST = `<svg class="crest" viewBox="0 0 34 38" aria-hidden="true"><path d="M17 1 L32 6 V18 C32 28 25 34 17 37 C9 34 2 28 2 18 V6 Z" fill="#252c57" stroke="#dcb96e" stroke-width="1.5"/><path d="M17 9 l2.6 6.2 6.6.5-5 4.3 1.6 6.5L17 23l-5.8 3.5 1.6-6.5-5-4.3 6.6-.5z" fill="#dcb96e"/></svg>`;
 
 // 메뉴 인장: 마법 표식(炎, 氷…)과 같은 한자 인장으로 통일
-const NAV_SEAL = {hub:'館', train:'練', students:'生', facility:'設', league:'戰', hall:'譽', records:'錄', codex:'典', help:'助', backup:'藏'};
+const NAV_SEAL = {hub:'館', train:'練', students:'生', facility:'設', league:'戰', practice:'試', hall:'譽', records:'錄', codex:'典', help:'助', backup:'藏'};
+// 메뉴 묶음: 같은 성격의 화면끼리 모아 제목을 붙입니다.
+const NAV_GROUP = {hub:'학교 운영', league:'경기', hall:'기록과 자료', help:'도움'};
 function shell(inner, nav = true){
-  const tabs = [['hub','본관'],['train','훈련'],['students','학생'],['facility','시설'],['league','리그 순위'],['hall','명예의 전당'],['records','기록실'],['codex','마법 도감'],['help','도움말'],['backup','저장 관리']];
+  const tabs = [['hub','본관'],['train','훈련'],['students','학생'],['facility','시설'],['league','리그 순위'],['practice','연습 경기'],['hall','명예의 전당'],['records','기록실'],['codex','마법 도감'],['help','도움말'],['backup','저장 관리']];
   return `
   <header class="topbar">
     <div class="plaque">${CREST}
@@ -24,13 +26,13 @@ function shell(inner, nav = true){
     </div>
   </header>
   <div class="layout ${nav ? '' : 'full'}">
-    ${nav ? `<nav aria-label="메뉴">${tabs.map(([k,n]) => `<button data-a="go" data-v="${k}" aria-current="${V.view===k}"><span class="seal" aria-hidden="true">${NAV_SEAL[k]}</span><span class="lbl">${n}</span></button>`).join('')}
+    ${nav ? `<nav aria-label="메뉴">${tabs.map(([k,n]) => `${NAV_GROUP[k] ? `<div class="nav-group" aria-hidden="true">${NAV_GROUP[k]}</div>` : ''}<button data-a="go" data-v="${k}" aria-current="${V.view===k}" title="${n}"><span class="seal" aria-hidden="true">${NAV_SEAL[k]}</span><span class="lbl">${n}</span></button>`).join('')}
       <div style="flex:1"></div><button data-a="reset" class="hide-sm" style="font-size:.82rem">새 게임</button></nav>` : ''}
     <main>${inner}</main>
   </div>`;
 }
 
-const META = ['hub','train','students','facility','league','hall','records','codex','help','backup'];
+const META = ['hub','train','students','facility','league','practice','hall','records','codex','help','backup'];
 // First-week guidance. Only new games opt in through S.tutorial.
 function tutorialActive(){
   return !!(S && S.tutorial && !S.tutorial.dismissed && S.season === 1 && S.week === 0);
@@ -50,7 +52,7 @@ function tutorialStep(){
     : {id:'draft', n:3, title:'마법과 학생을 함께 고르세요', text:'우리 차례에 마법을 금지하거나, 출전할 마법과 맡을 학생을 선택하세요. 코치 조언에서 추천 이유를 확인할 수 있습니다.'};
   if (!['hub','train','students','facility','league','hall','codex'].includes(V.view)) return null;
   if (S.event && !t.event) return {id:'event', n:1, title:'이번 주 사건을 처리하세요', text:'본관의 사건에서 두 선택지의 비용과 효과를 살펴본 뒤 하나를 고르세요. 사건을 처리하면 경기를 준비할 수 있습니다.'};
-  if (!t.train) return {id:'train', n:2, title:'훈련 계획을 확정하세요', text:'학생별 훈련이나 휴식을 고르고, 훈련 화면 아래의 선택 완료를 누르세요. 확정한 훈련은 경기가 끝난 뒤 반영됩니다.'};
+  if (!t.train || pendingTrain()) return {id:'train', n:2, title:'훈련 계획을 확정하세요', text:'학생별 훈련이나 휴식을 고르고, 훈련 화면 아래의 선택 완료를 누르세요. 확정한 훈련은 경기가 끝난 뒤 반영됩니다.'};
   if (!t.draft) return {id:'draft', n:3, title:'경기 준비를 눌러 밴픽을 시작하세요', text:'본관에서 상대 분석을 살펴본 뒤 경기 준비를 누르세요. 마법을 금지하고 학생 셋에게 마법을 맡기면 출전 명단이 정해집니다.'};
   return null;
 }
@@ -71,17 +73,55 @@ function completeTacticLesson(battle, team){
 }
 
 
+// 위쪽 막대 높이를 CSS에 알려 왼쪽 메뉴가 그 아래에 붙어 있게 합니다.
+function syncTopbarHeight(){
+  const tb = typeof document.querySelector === 'function' ? document.querySelector('.topbar') : null, de = document.documentElement;
+  if (tb && de && de.style && tb.offsetHeight) de.style.setProperty('--top-h', tb.offsetHeight + 'px');
+}
+if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('resize', () => syncTopbarHeight());
+let renderedView = null, renderedGame = null;
+function uiControlKey(el){
+  if (!el || !el.getAttribute) return null;
+  if (el.id) return ['id',el.id];
+  for (const attr of ['data-a','data-gear','data-practice']){
+    if (el.hasAttribute(attr)) return [attr,el.getAttribute(attr),el.getAttribute('data-v')];
+  }
+  return null;
+}
 function render(){
   if (B && V.view !== 'battle') stopLoop();
   if (S && S.phase === 'graduation' && META.includes(V.view)) V.view = 'recruit';
   const v = V.view;
-  if (v === 'start') return root.innerHTML = viewStart();
-  if (S.phase === 'season_end' && v === 'hub') return root.innerHTML = shell(viewSeasonEnd());
-  const map = {hub:viewHub, train:viewTrain, students:viewStudents, facility:viewFacility, hall:viewHall, league:viewLeague, codex:viewCodex, records:viewRecords, backup:viewBackup, help:viewHelp, draft:viewDraft, battle:viewBattle, result:viewResult, graduation:viewGraduation, recruit:viewRecruit};
+  const sameView = renderedView === v && renderedGame === S;
+  if (sameView && v === 'start'){
+    const name = document.getElementById('sname');
+    if (name) V.schoolNameDraft = name.value;
+  }
+  const active = sameView ? uiControlKey(document.activeElement) : null;
+  const position = {x:window.scrollX || 0,y:window.scrollY || 0};
+  const oldNav = document.querySelector('nav'), navLeft = oldNav ? oldNav.scrollLeft : 0;
+  const foldKey = el => el.id || el.getAttribute('data-fold') || el.querySelector('summary')?.textContent;
+  const folds = sameView ? new Map([...document.querySelectorAll('details')].map(el=>[foldKey(el),el.open])) : new Map();
+  renderedView = v; renderedGame = S;
+  const map = {hub:viewHub, train:viewTrain, students:viewStudents, facility:viewFacility, practice:viewPractice, hall:viewHall, league:viewLeague, codex:viewCodex, records:viewRecords, backup:viewBackup, help:viewHelp, draft:viewDraft, battle:viewBattle, result:viewResult, graduation:viewGraduation, recruit:viewRecruit};
   const navOn = META.includes(v);
-  root.innerHTML = shell(`<div id="tutorial">${tutorialHtml()}</div>${tipHtml()}` + map[v](), navOn);
+  if (v === 'start') root.innerHTML = viewStart();
+  else if (S.phase === 'season_end' && v === 'hub') root.innerHTML = shell(viewSeasonEnd());
+  else root.innerHTML = shell((v === 'practice' ? '' : `<div id="tutorial">${tutorialHtml()}</div>${tipHtml()}`) + map[v](), navOn);
+  if (v === 'help' && V.helpQuery) filterHelp(V.helpQuery);
+  if (sameView){
+    document.querySelectorAll('details').forEach(el=>{ if (folds.has(foldKey(el))) el.open = folds.get(foldKey(el)); });
+    const nav = document.querySelector('nav'); if (nav) nav.scrollLeft = navLeft;
+    if (active){
+      const target = [...document.querySelectorAll('[id],[data-a],[data-gear],[data-practice]')].find(el=>JSON.stringify(uiControlKey(el)) === JSON.stringify(active));
+      if (target && !target.disabled) target.focus({preventScroll:true});
+    }
+    window.scrollTo(position.x,position.y);
+  }
+  if (v === 'start') return;
   musicMode();
-  if (navOn && narrow()){ const cur = document.querySelector('nav [aria-current="true"]'); if (cur && cur.scrollIntoView) cur.scrollIntoView({block:'nearest', inline:'center'}); }
+  syncTopbarHeight();
+  if (!sameView && navOn && narrow()){ const cur = document.querySelector('nav [aria-current="true"]'); if (cur && cur.scrollIntoView) cur.scrollIntoView({block:'nearest', inline:'center'}); }
   if (v === 'battle') startLoop();
   if (v === 'draft') maybeAi();
 }
@@ -99,7 +139,7 @@ function viewStart(){
     ${CREST.replace('class="crest"','class="crest" style="width:56px;height:62px"')}
     <h1>마법학교 대항전</h1>
     <p class="lede">학생을 키우고, 마법을 금지하고 고르고, 3대3 대항전을 지켜보세요. 4학년은 졸업해서 떠나니 매년 새 얼굴을 찾아야 합니다.</p>
-    <div class="field"><label for="sname">학교 이름</label><input id="sname" maxlength="14" value="은하수 마법학교"></div>
+    <div class="field"><label for="sname">학교 이름</label><input id="sname" maxlength="14" value="${esc(V.schoolNameDraft ?? '은하수 마법학교')}"></div>
     <div class="field"><span>학교의 상징 원소</span>
       <div class="elpick" role="group">${ELK.map(k => `<button data-a="startElem" data-v="${k}" aria-pressed="${V.startElem===k}"><span class="el ${k}">${EL[k].n}</span></button>`).join('')}</div>
       <small class="muted">상징 원소를 가진 학생이 더 자주 입학합니다.</small></div>
@@ -118,17 +158,19 @@ function condBar(c){ return `<div class="bar ${c < 50 ? 'low' : c < 75 ? 'mid' :
 const TRAIN = [['atk','공격'],['def','수비'],['int','판단'],['rest','휴식']];
 const STATN = {atk:'공격', def:'수비', int:'판단'};
 function growRange(st, focus){
-  const yf = [1.3, 1.1, .9, .7][st.year-1] || .7, k = (.6 + st.pot*.2) * yf * traitGrow(st) * facGrowMult(focus || st.train) * overGrow(st[focus || st.train]);
+  const yf = [1.3, 1.1, .9, .7][st.year-1] || .7, k = (.6 + st.pot*.2) * yf * traitGrow(st) * facGrowMult(focus || st.train) * policyGrowthMult(st) * overGrow(st[focus || st.train]);
   return [.4*k, 1.6*k];
 }
 function viewHub(){
   const my = me(), op = school(opponentId());
   const plan = {}; my.students.forEach(st => { const k = st.train || 'none'; plan[k] = (plan[k] || 0) + 1; });
   const tired = my.students.filter(st => st.cond < 60);
-  return `<div class="grid2 hub-grid">
-    <div class="stack">
+  return `<div class="hub-grid">
+    <div class="stack hub-a">
       ${eventHtml()}
-      <section class="panel">
+      ${storyHtml()}
+      ${cupRewardHtml()}
+      <section class="panel next-match">
         <div class="spread">
           <div>
             <p class="muted">${S.phase === 'final' ? `결승 ${S.final.games.length + 1}차전, 시리즈 ${S.final.wins[0]} 대 ${S.final.wins[opponentId()]}` : S.phase === 'cup' ? `마법사 컵 ${cupRoundName()} 상대` : `${S.week+1}주차 상대`}</p>
@@ -139,10 +181,14 @@ function viewHub(){
             ${rivalryBonus() ? `<p class="bad" style="font-size:.88rem">견제: 최근 3시즌 동안 ${recentTitles()}번 우승한 우리를 상대 학교들이 집중 분석해 능력치 +${R(rivalryBonus()*100)}%로 나옵니다.</p>` : ''}
             ${coachActive() ? `<p class="good" style="font-size:.88rem">코치 ${esc(S.myCoach.name)}: 우리 능력치 +3%</p>` : ''}
           </div>
-          ${S.event ? '<button class="btn" disabled>사건을 먼저 처리하세요</button>' : '<button class="btn" data-a="startDraft">경기 준비</button>'}
+          ${S.event ? '<button class="btn" disabled>사건을 먼저 처리하세요</button>' : '<button class="btn big-go" data-a="startDraft">경기 준비</button>'}
         </div>
       </section>
       ${S.phase === 'final' ? finalHtml() : ''}${S.phase === 'cup' ? cupHtml() : ''}
+      ${finalAdaptationHtml(op.id)}
+      ${policyHtml()}
+    </div>
+    <div class="stack hub-b">
       ${goalsHtml()}
       <section class="panel">
         <div class="spread"><h3 style="margin:0">이번 주 훈련 계획 ${S.trainSet ? '<span class="good" style="font-size:.85rem">확정됨</span>' : '<span class="bad" style="font-size:.85rem">미확정</span>'}</h3><button class="btn ghost small" data-a="go" data-v="train">훈련 정하기</button></div>
@@ -151,11 +197,12 @@ function viewHub(){
         ${tired.length ? `<p class="bad" style="font-size:.9rem">컨디션이 낮은 학생: ${tired.map(st => `${esc(st.name)} ${R(st.cond)}`).join(', ')}</p>` : '<p class="muted" style="font-size:.9rem">컨디션이 크게 떨어진 학생은 없습니다.</p>'}${moraleWarnHtml()}
       </section>
       <section class="panel">
+        <details><summary>출전 조합과 준비 상태</summary>${lineupsHtml()}${matchReadinessHtml()}</details>
         <div class="spread"><h3 style="margin:0">학생 ${my.students.length}명</h3><button class="btn ghost small" data-a="go" data-v="students">학생 보기</button></div>
         <div class="mini-roster">${[...my.students].sort((a,b) => ovr(b) - ovr(a)).map(st => `<div><span>${esc(st.name)}</span> ${elChip(st.elem)} <span class="ovr num" style="font-size:1.05rem">${R(ovr(st))}</span>${condBar(st.cond)}</div>`).join('')}</div>
       </section>
     </div>
-    <div class="stack">
+    <div class="stack hub-c">
       <section class="panel"><h3 style="margin:0">상대 분석: ${esc(op.name)}</h3>${intelHtml(op.id)}</section>
       <section class="panel">
         <div class="spread"><h3 style="margin:0">시설</h3><button class="btn ghost small" data-a="go" data-v="facility">시설 보기</button></div>
@@ -178,7 +225,7 @@ const planOf = st => (V.trainDraft && V.trainDraft[st.id]) || st.train;
 const pendingTrain = () => me().students.filter(st => V.trainDraft && V.trainDraft[st.id] && V.trainDraft[st.id] !== st.train).length;
 function viewTrain(){
   const my = me(), pending = pendingTrain();
-  const status = S.trainSet
+  const status = pending ? `<p class="bad" style="font-size:.92rem">${S.trainSet ? '기존 계획은 확정됨' : '훈련 미확정'} · 수정 ${pending}건 미반영. 선택 완료를 눌러 반영하세요.</p>` : S.trainSet
     ? '<p class="good" style="font-size:.92rem">이번 주 훈련 계획을 확정했습니다. 다음 경기가 끝나면 이 계획대로 훈련합니다.</p>'
     : '<p class="bad" style="font-size:.92rem">아직 확정하지 않았습니다. 확정하지 않으면 지난 계획대로 훈련합니다.</p>';
   return `<div class="spread" style="margin-bottom:1rem">
@@ -296,7 +343,7 @@ function viewStudents(){
         <div class="tr-block">${traitList(st)}</div>
         ${gearSelectHtml(st)}
         <div style="font-size:.85rem"><span class="muted">케미</span> ${chemListHtml(st)}</div>
-        ${moraleLine(st)}${awakeLine(st)}
+        ${moraleLine(st)}${awakeLine(st)}${specializationHtml(st)}${mentorshipLine(st)}
         ${contractLine(st)}
         <div class="mast-block"><div class="muted" style="font-size:.8rem">마법 숙련도</div>${mastRows(st)}</div>
         ${st.pot < 5 && st.year < 4 ? `<button class="btn ghost small" data-a="scholar" data-v="${st.id}" ${st.scholar === S.season || S.gold < scholarCost(st) || !canInvest() ? 'disabled' : ''}>${st.scholar === S.season ? '이번 시즌 장학금 지급함' : `장학금 <span class="coin"></span>${scholarCost(st)} (잠재력 +1)`}</button>` : ''}

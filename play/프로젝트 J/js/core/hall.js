@@ -8,7 +8,8 @@ function hallScore(h){ return h.rec.k + h.rec.mvp*5 + h.rec.w*2 + h.ovr*.5; }
 function addHall(g){
   S.hall = S.hall || [];
   const m = g.mastery || {}, best = Object.keys(m).sort((a,b) => m[b] - m[a])[0];
-  S.hall.push({name:g.name, elem:g.elem, ovr:R(ovr(g)), season:S.season, traits:g.traits || [], rec:g.rec || {g:0, w:0, k:0, d:0, mvp:0},
+  S.hall.push({id:g.id, name:g.name, elem:g.elem, ovr:R(ovr(g)), season:S.season, specialization:g.specialization || null, traits:g.traits || [], rec:g.rec || {g:0, w:0, k:0, d:0, mvp:0},
+    mentoredBy:Array.isArray(g.mentoredBy) ? g.mentoredBy.map(h => ({...h})) : [],
     best: best ? {id:best, lv:mastLv(g, best)} : null, titles:S.titlesThisRun || 0});
 }
 function viewHall(){
@@ -23,14 +24,15 @@ function viewHall(){
           ${legends.length ? `<div class="cards">${legends.map((h, i) => `<article class="scard legend">
             <div class="top"><span class="nm">${esc(h.name)}</span><span class="ovr num">${h.ovr}</span></div>
             <div class="row" style="gap:.4rem"><span class="muted" style="font-size:.85rem">시즌 ${h.season} 졸업</span>${elChip(h.elem)}</div>
-            <div>${h.traits.map(k => TRAITS[k] ? `<span class="trait ${TRAITS[k].neg ? 'neg' : ''}">${TRAITS[k].n}</span>` : '').join(' ')}</div>
+            <div>${h.traits.map(k => TRAITS[k] ? `<span class="trait ${TRAITS[k].neg ? 'neg' : ''}">${TRAITS[k].n}</span>` : '').join(' ')}${specializationSummary(h)}</div>
             ${h.best ? `<div style="font-size:.85rem"><span class="muted">대표 마법</span> ${CH[h.best.id] ? CH[h.best.id].n : ''} Lv${h.best.lv}</div>` : ''}
+            ${mentorshipLine(h)}
             <div class="rec-grid"><span><b class="num">${h.rec.g}</b>출전</span><span><b class="num">${h.rec.w}</b>승리</span><span><b class="num">${h.rec.k}</b>처치</span><span><b class="num">${h.rec.d}</b>죽음</span><span><b class="num">${h.rec.mvp}</b>MVP</span></div>
           </article>`).join('')}</div>` : '<p class="muted">아직 졸업생이 없습니다. 첫 시즌이 끝나면 4학년이 이곳에 기록됩니다.</p>'}
         </section>
         <section class="panel"><h3>모든 졸업생 <span class="muted" style="font-size:.85rem">${hall.length}명</span></h3>
           ${hall.length ? `<div style="overflow-x:auto"><table><thead><tr><th>이름</th><th>원소</th><th class="r">졸업</th><th class="r">종합</th><th class="r">출전</th><th class="r">승리</th><th class="r">처치</th><th class="r">MVP</th></tr></thead><tbody>
-            ${hall.map(h => `<tr><td>${esc(h.name)}</td><td>${elChip(h.elem)}</td><td class="num r">S${h.season}</td><td class="num r">${h.ovr}</td><td class="num r">${h.rec.g}</td><td class="num r">${h.rec.w}</td><td class="num r">${h.rec.k}</td><td class="num r">${h.rec.mvp}</td></tr>`).join('')}
+            ${hall.map(h => `<tr><td>${esc(h.name)}${mentorshipLine(h)}</td><td>${elChip(h.elem)}</td><td class="num r">S${h.season}</td><td class="num r">${h.ovr}</td><td class="num r">${h.rec.g}</td><td class="num r">${h.rec.w}</td><td class="num r">${h.rec.k}</td><td class="num r">${h.rec.mvp}</td></tr>`).join('')}
           </tbody></table></div>` : '<p class="muted">기록이 없습니다.</p>'}
         </section>
       </div>
@@ -41,7 +43,7 @@ function viewHall(){
           </tbody></table>` : '<p class="muted">아직 끝난 시즌이 없습니다.</p>'}
           <p style="margin-top:.6rem">우승 <b class="num" style="font-weight:400;color:var(--brass)">${S.trophies}</b>회</p>
         </section>
-        ${achHtml()}
+        ${achHtml()}${storyHistoryHtml()}
         <section class="panel"><h3>학교 기록</h3>
           <div class="records">${rec('k', '최다 처치')}${rec('mvp', '최다 MVP')}${rec('w', '최다 승리')}${rec('g', '최다 출전')}</div>
           ${hall.length ? '' : '<p class="muted">졸업생이 생기면 기록이 채워집니다.</p>'}

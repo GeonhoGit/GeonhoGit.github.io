@@ -23,16 +23,19 @@ function mkUnit(team, champ, st, bonus, idx){
     stun:0, shield:0, shT:0, taunt:0, taunter:null, burn:0, burnDps:0, burnSrc:null, hot:0, hotPs:0, hotSrc:null,
     tsp:1, alive:true, resp:0, k:0, d:0, dmg:0, heal:0, flash:0 };
 }
-function newBattle(teams, mapId = 'plain'){ // teams: [[{champ, st, bonus}...], [...]], mapId: MAPS 키
+function newBattle(teams, mapId = 'plain', strategies = []){ // teams: [[{champ, st, bonus}...], [...]], mapId: MAPS 키
   const units = [], els = teams.map(tm => tm.map(m => CH[m.champ].e));
-  teams.forEach((tm, ti) => tm.forEach((m, i) => { const u = mkUnit(ti, m.champ, m.st, m.bonus, Number.isInteger(m.slot) && m.slot >= 0 && m.slot < 3 ? m.slot : i); applyGear(u); applyAwake(u); applySyn(u, els[ti]); applyGearAfter(u); units.push(u); }));
+  teams.forEach((tm, ti) => tm.forEach((m, i) => { const u = mkUnit(ti, m.champ, m.st, m.bonus, Number.isInteger(m.slot) && m.slot >= 0 && m.slot < 3 ? m.slot : i); applyGear(u); applyAwake(u); applySyn(u, els[ti]); applyGearAfter(u); applySpecialization(u); units.push(u); }));
   units.forEach(u => { if (hasT(u.st, 'mood')) units.forEach(o => { if (o !== u && o.team === u.team) o.atk *= 1.06; }); });
   const map = MAPS[mapId] ? mapId : 'plain';
-  return { units, els, map, terrain:mapZones(map), t:0, dur:MATCH_SEC, score:[0,0], fx:[], feed:[], over:false, winner:-1, shake:0,
+  const battle = { units, els, map, strategies:[0,1].map(t => Object.prototype.hasOwnProperty.call(STRATEGIES, strategies[t]) ? strategies[t] : null), terrain:mapZones(map), t:0, dur:MATCH_SEC, score:[0,0], fx:[], feed:[], over:false, winner:-1, shake:0,
     timeline:[{t:0, score:[0,0]}], deaths:[], tacticLog:[], paused:false,
     tac:[0,1].map(() => ({left:TAC_USES, used:[], active:{}, next:0})), autoTac:[true, true] };
+  setupCooperation(battle);
+  return battle;
 }
 function recordBattle(B, final = false){
+  highlightSurvival(B);
   const last = B.timeline[B.timeline.length - 1];
   if (final || B.t + 1e-9 >= last.t + 15){
     if (Math.abs(B.t - last.t) < 1e-6 || (final && B.t-last.t <= 1/60 + 1e-6)){ last.t = B.t; last.score = [...B.score]; }
@@ -82,25 +85,30 @@ function fxRing(B, x, y, r, col, life=.45){ if (B.headless) return; B.fx.push({k
 
 function damage(B, src, tgt, raw, quiet){
   if (!tgt.alive || B.over) return 0;
-  let d = raw * traitAtk(B, src) * (src.weakT > 0 ? .7 : 1) * (tacOn(B, src.team, 'focus') ? 1.15 : 1) * (tacOn(B, tgt.team, 'guard') ? .7 : 1) * elemMult(src.c.e, tgt.c.e) * awkDmg(src, tgt) * (tgt.mistT > 0 ? .75 : 1) * (100 / (100 + tgt.def*2.2)) * (quiet ? 1 : rnd(.92, 1.08));
+  let d = raw * traitAtk(B, src) * (src.weakT > 0 ? .7 : 1) * (tacOn(B, src.team, 'focus') ? 1.15 : 1) * (tacOn(B, tgt.team, 'guard') ? .7 : 1) * elemMult(src.c.e, tgt.c.e) * awkDmg(src, tgt) * specializationDamage(B, src, tgt) * strategyDamageTaken(B, tgt) * gearDamageMult(src) * (tgt.mistT > 0 ? .75 : 1) * (100 / (100 + tgt.def*2.2)) * (quiet ? 1 : rnd(.92, 1.08));
   if (tgt.shield > 0){ const ab = Math.min(tgt.shield, d); tgt.shield -= ab; d -= ab; }
   tgt.hp -= d; src.dmg += d; tgt.flash = .12;
   if (src.lifesteal && src.alive && d > 0){ const h = Math.min(d*src.lifesteal, src.maxHp - src.hp); src.hp += h; src.heal += h; }
   if (!quiet && d >= 1) fxTxt(B, tgt.x, tgt.y-22, R(d), '#f4ecd6');
   if (tgt.hp <= 0 && !awkSave(B, tgt)) kill(B, src, tgt);
+  gearCrisis(B,tgt);
   return d;
 }
 function heal(B, src, tgt, amt, quiet){
   if (!tgt.alive) return;
-  const h = Math.min(amt, tgt.maxHp - tgt.hp);
-  tgt.hp += h; src.heal += h;
-  if (!quiet && h >= 1) fxTxt(B, tgt.x, tgt.y-22, '+' + R(h), '#9ff0bf');
+  amt = gearHealingAmount(src,tgt,amt);
+  for (const part of specializationHealing(B, src, tgt, amt)){
+    const h = Math.max(0, Math.min(part.amount, part.target.maxHp - part.target.hp));
+    part.target.hp += h; src.heal += h;
+    if (!quiet && h >= 1) fxTxt(B, part.target.x, part.target.y-22, '+' + R(h), '#9ff0bf');
+  }
 }
 function kill(B, src, tgt){
   B.deaths.push({t:B.t, sid:tgt.st.id, team:tgt.team});
   tgt.alive = false; tgt.hp = 0; tgt.d++; tgt.resp = (3 + B.t/20) * (hasT(tgt.st, 'phoenix') ? .7 : 1) * (1 - (tgt.gearResp || 0));
   tgt.burn = 0; tgt.hot = 0; tgt.shield = 0;
   if (src.team !== tgt.team){ src.k++; B.score[src.team]++; }
+  highlightKill(B, src, tgt);
   B.feed.unshift({team:src.team, text:`${src.st.name}(${src.c.n}) → ${tgt.st.name}(${tgt.c.n})`});
   if (!B.headless) sfx('kill', src.team);
   B.feed = B.feed.slice(0, 4);
@@ -110,6 +118,7 @@ function target(B,u){
   if (u.taunt > 0 && u.taunter && u.taunter.alive) return u.taunter;
   if (tacOn(B, u.team, 'focus')){ const fs = foes(B,u); if (fs.length) return fs.sort((a,b) => a.hp/a.maxHp - b.hp/b.maxHp)[0]; }
   const fs = foes(B,u); if (!fs.length) return null;
+  const chosen = strategyTarget(B, u, fs); if (chosen) return chosen;
   let best = null, bs = 1e9;
   if (u.c.assassin){
     for (const f of fs){ const s = dist(u,f)*.5 + (f.hp/f.maxHp)*120 - (f.c.range > 100 ? 70 : 0); if (s < bs){ bs = s; best = f; } }
@@ -286,15 +295,23 @@ function step(B, dt){
     if (u.mistT > 0) u.mistT -= dt;
     u.mvx = u.mvy = 0;
     terrainTick(B, u, dt);
+    gearCrisis(B,u);
     if (u.stun > 0){ u.stun -= dt; continue; }
     if (u.retreat > 0){ u.retreat -= dt; moveTo(u, u.hx, u.hy, u.spd*u.tsp*1.3*dt); heal(B, u, u, u.maxHp*.1*dt, true); continue; }
-    if (u.sk <= 0){ const ox = u.x, oy = u.y; if (useSkill(B,u)){ u.sk = u.scd * awkCd(u); fxCall(B,u); fxReach(B, ox, oy, u.c.sr || u.c.ar || u.range, EL[u.c.e].c); } }
+    if (u.sk <= 0){
+      const ox = u.x, oy = u.y;
+      gearBeginSkill(u);
+      const casted = cooperationSkill(B,u,() => useSkill(B,u));
+      gearEndSkill(u,casted);
+      if (casted){ u.sk = u.scd * awkCd(u); fxCall(B,u); fxReach(B, ox, oy, u.c.sr || u.c.ar || u.range, EL[u.c.e].c); }
+    }
     if (!u.alive) continue;
     const t = target(B,u); if (!t) continue;
     const d = dist(u,t);
-    if (d > u.range) moveTo(u, t.x, t.y, u.spd*u.tsp*dt);
+    const moved = strategyMove(B, u, t, dt);
+    if (d > u.range){ if (!moved) moveTo(u, t.x, t.y, u.spd*u.tsp*dt); }
     else {
-      if (u.range > 100){
+      if (!moved && u.range > 100){
         const fs = foes(B,u); let n = null, nd = 1e9;
         for (const f of fs){ const q = dist(u,f); if (q < nd){ nd = q; n = f; } }
         if (n && nd < 55 && u.at > .25){
@@ -312,6 +329,7 @@ function step(B, dt){
     if (d < 34 && d > .01){ const p = (34-d)/2; a.x -= dx/d*p; a.y -= dy/d*p; b.x += dx/d*p; b.y += dy/d*p; }
   }
   terrainCollide(B, dt);
+  cooperationTick(B);
   for (const u of B.units){ u.x = clamp(u.x, 20, W-20); u.y = clamp(u.y, 20, H-20); }
   if (!B.headless){ B.fx = B.fx.filter(f => (f.t += dt) < f.life); if (B.shake > 0) B.shake = Math.max(0, B.shake - dt*22); }
   recordBattle(B);

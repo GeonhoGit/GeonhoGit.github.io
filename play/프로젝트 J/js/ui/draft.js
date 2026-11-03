@@ -9,7 +9,9 @@ function startDraft(){
   const order = [[A,'ban'],[Bt,'ban'],[A,'pick'],[Bt,'pick'],[Bt,'pick'],[A,'pick'],[A,'pick'],[Bt,'pick']].map(([team,kind]) => ({team, kind}));
   const stById = {};
   my.students.concat(op.students).forEach(s => stById[s.id] = s);
-  D = { opp:oid, order, step:0, bans:[[],[]], picks:[[],[]], roster:[my.students.map(s => s.id), op.students.map(s => s.id)], stById, formation:[0,1,2], sel:null, aiTimer:null, lastAi:null, map:pickMap() };
+  D = { opp:oid, order, step:0, bans:[[],[]], picks:[[],[]], roster:[my.students.map(s => s.id), op.students.map(s => s.id)], stById, formation:[0,1,2], strategies:[schoolStrategy(my), schoolStrategy(op)], sel:null, aiTimer:null, lastAi:null, map:pickMap() };
+  loadActiveLineup();
+  prepareFinalDraft(D, [0,oid]);
   V.view = 'draft'; render(); window.scrollTo(0,0);
 }
 function curTurn(){ return D.step < D.order.length ? D.order[D.step] : null; }
@@ -19,7 +21,7 @@ function doDraft(team, champ, sid){
   else D.picks[team].push({champ, sid});
   D.step++; D.sel = null; D.lastAi = team === 1 ? champ : null;
   sfx(t.kind === 'ban' ? 'ban' : 'pick');
-  if (!curTurn()) markTutorial('draft');
+  if (!curTurn()){ applyLineupFormation(); markTutorial('draft'); }
   render();
   if (!curTurn()) schedulePrediction();
 }
@@ -102,19 +104,23 @@ function viewDraft(){
       <h3 style="margin-top:.9rem">${esc(op.name)} 학생</h3>
       <div style="font-size:.86rem">${D.roster[1].map(id => D.stById[id]).map(st => `<div class="spread" style="gap:.4rem"><span>${esc(st.name)} ${elChip(st.elem)}</span><span class="muted">주력 ${st.fav.map(f => CH[f].n).join(', ')}</span></div>`).join('')}</div>`;
   }
+  // 밴픽 중에는 마법 목록을 위로 올리고, 조합 저장·준비 확인은 목록 아래 접어 둡니다.
+  const prep = `${formationHtml()}${!t ? lineupsHtml() + matchReadinessHtml() : `<details class="analysis"><summary>저장 조합 · 경기 준비 확인</summary>${lineupsHtml()}${matchReadinessHtml()}</details>`}`;
   return `${trackHtml()}
-    ${mapCardHtml(D.map, true)}
+    <div class="draft-top">${mapCardHtml(D.map, true)}${strategyPickerHtml(D.strategies[0], true)}</div>
     <div class="draft-head">
       <div class="side"><div class="muted" style="font-size:.85rem">${esc(me().name)}</div>${[0,1,2].map(i => slotHtml(0,i)).join('')}
-        ${synHtml(teamEls(0))}${chemTeamHtml(D.picks[0].map(p => p.sid))}
+        ${synHtml(teamEls(0))}${chemTeamHtml(D.picks[0].map(p => p.sid))}${cooperationHtml(D.picks[0].map(p => p.sid), D.picks[0])}
         <div class="bans">${D.bans[0].map(b => `<span class="banchip">${CH[b].n}</span>`).join('')}</div></div>
       <div class="turn panel">${banner}</div>
       <div class="side enemy"><div class="muted" style="font-size:.85rem;text-align:right">${esc(op.name)}${op.coach ? `, 코치 ${esc(op.coach.name)} (+4%)` : ''}</div>${[0,1,2].map(i => slotHtml(1,i)).join('')}
         ${synHtml(teamEls(1), true)}
         <div class="bans" style="justify-content:flex-end">${D.bans[1].map(b => `<span class="banchip">${CH[b].n}</span>`).join('')}</div></div>
     </div>
+    ${finalAdaptationHtml(D.opp)}
+    ${lineupPickHtml()}
     ${mine ? adviceHtml(t) : ''}
-    ${formationHtml()}
+    ${!t ? prep : ''}
     <div class="draft-body">
       <div class="cgrid">${CHK.map(id => { const c = CH[id], gone = !av.has(id), banned = D.bans[0].includes(id) || D.bans[1].includes(id);
         const counters = oppEls.some(e => EL[c.e].beats === e);
@@ -124,7 +130,8 @@ function viewDraft(){
           ${!gone && (rec.includes(id) || banRec.includes(id) || counters || syn) ? `<br><span class="cr">${[rec.includes(id) ? '<span class="rec">추천</span>' : '', banRec.includes(id) ? '<span class="bad">금지 추천</span>' : '', counters ? '<span class="good">상성 우위</span>' : '', syn ? '<span class="good">조합</span>' : ''].filter(Boolean).join(' ')}</span>` : ''}</span>
           ${patchTag(id)}${gone ? `<span class="who">${banned ? '금지' : owner[id]}</span>` : ''}</button>`; }).join('')}</div>
       <aside class="panel detail">${panel}</aside>
-    </div>`;
+    </div>
+    ${t ? `<div style="margin-top:1rem">${prep}</div>` : ''}`;
 }
 
 /* ---------- 밴픽 코치 조언 ---------- */
@@ -204,7 +211,7 @@ function predictDraft(){
   const my = me(), op = school(D.opp), n = 16;
   const team = (ti, sc) => D.picks[ti].map((p,i) => ({champ:p.champ, st:D.stById[p.sid], slot:ti === 0 ? formationOf()[i] : i, bonus: teamBonus(sc, true) + (ti === 0 ? chemBonus(p.sid, D.picks[0].map(q => q.sid)) : 0)}));
   let w = 0;
-  for (let i = 0; i < n; i++){ const b = newBattle([team(0, my), team(1, op)], D.map); runHeadless(b); if (b.winner === 0) w++; }
+  for (let i = 0; i < n; i++){ const b = newBattle([team(0, my), team(1, op)], D.map, D.strategies); runHeadless(b); if (b.winner === 0) w++; }
   const pow = ti => D.picks[ti].reduce((s, p) => s + fitScore(D.stById[p.sid], p.champ), 0) / 3;
   const adv = ti => D.picks[ti].reduce((s, p) => s + D.picks[1-ti].filter(q => EL[CH[p.champ].e].beats === CH[q.champ].e).length, 0);
   D.pred = {n, w, autoTactic:true, pow:[pow(0), pow(1)], adv:[adv(0), adv(1)], syn:[synergies(teamEls(0)).length, synergies(teamEls(1)).length]};

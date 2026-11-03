@@ -29,6 +29,7 @@ function newGame(name, elem, dif = 'normal'){
   S = { season:1, week:0, gold:300, fame:0, trophies:0, schools, patch:{}, patchNotes:[], news:[], results:[], phase:'hub', lastGrads:[], prospects:[], history:[], fac:{gym:0, library:0, dorm:0, scout:0} };
   S.tutorial = {event:false, train:false, draft:false, tactic:false, dismissed:false};
   S.diff = DIFF[dif] ? dif : 'normal'; S.gold = diff().gold; S.chem = {}; S.items = []; initChem(schools[0]);
+  resetSeasonPolicy();
   S.div = 2; S.other = genOtherDiv(S, 0); S.stats = null; schools[0].students.forEach(st => st.morale = 70); makeGoals();
   newSeasonTable();
   addNews(`${name}의 첫 시즌이 시작됐습니다. 학생 셋을 골라 대항전에 내보내세요.`);

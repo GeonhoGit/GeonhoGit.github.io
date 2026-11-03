@@ -21,7 +21,7 @@ function viewResult(){
   if (!B.applied){
     B.applied = true;
     B.mvp = [...B.units].sort((a,b) => (b.k*300 + b.dmg + b.heal) - (a.k*300 + a.dmg + a.heal))[0];
-    const res = {opp:D.opp, winner:B.winner, score:[...B.score], starters:D.picks[0].map(p => p.sid),
+    const res = {opp:D.opp, winner:B.winner, score:[...B.score], storyMatchKey:storyMatchKey(), starters:D.picks[0].map(p => p.sid),
       units:B.units.filter(u => u.team === 0).map(u => ({sid:u.st.id, champ:u.champ, k:u.k, d:u.d})), mvp: B.mvp.team === 0 ? B.mvp.st.id : null};
     const goldBefore = S.gold, fameBefore = S.fame;
     B.isFinal = S.phase === 'final'; B.isCup = S.phase === 'cup'; B.cupLabel = B.isCup ? `마법사 컵 ${cupRoundName()}` : '';
@@ -45,6 +45,8 @@ function viewResult(){
       ${B.ups && B.ups.length ? `<div class="ups">${B.ups.map(u => `<div>${esc(u)}</div>`).join('')}</div>` : ''}</div>
       <button class="btn" data-a="afterResult">${S.phase === 'season_end' ? '시즌 결산 보기' : '본관으로'}</button>
     </div>
+    ${highlightsHtml(B)}
+    ${cupRewardHtml()}
     ${growthHtml()}
     <section class="panel" style="margin-bottom:1rem"><h3>${esc(me().name)}</h3><div style="overflow-x:auto"><table class="res-t">${head}<tbody>${rows(0)}</tbody></table></div></section>
     <section class="panel"><h3>${esc(op.name)}</h3><div style="overflow-x:auto"><table class="res-t">${head}<tbody>${rows(1)}</tbody></table></div></section>
@@ -54,7 +56,7 @@ function viewResult(){
 /* ---------- 시즌 종료, 졸업, 모집 ---------- */
 function viewSeasonEnd(){
   const st = finalRanking(), rank = st.findIndex(s => s.player) + 1;
-  return `<section class="panel" style="max-width:720px">
+  return `${cupRewardHtml()}<section class="panel" style="max-width:720px">
     <p class="muted">시즌 ${S.season} 결산</p>
     <div class="verdict ${rank===1?'win':''}" style="margin:.2rem 0 .6rem">${rank===1 ? '우승' : rank + '위'}</div>
     ${S.final ? `<div style="margin-bottom:1rem">${finalHtml()}</div>` : ''}
@@ -71,7 +73,7 @@ function viewGraduation(){
   const g = S.lastGrads;
   return `<section class="panel" style="max-width:720px">
     <h2>졸업식</h2>
-    ${lastMoveHtml()}${lastGoalsHtml()}
+    ${lastMoveHtml()}${lastGoalsHtml()}${storyHistoryHtml(S.season)}${cupRewardHtml()}
     ${g.length ? `<p class="muted">이번에 떠나는 4학년입니다.</p>
       <table><thead><tr><th>이름</th><th>원소</th><th class="r">종합</th><th>진로</th></tr></thead><tbody>
       ${g.map(x => `<tr><td>${esc(x.name)}</td><td>${elChip(x.elem)}</td><td class="num r">${x.ovr}</td><td>${x.coachAt ? `<span class="bad">${esc(x.coachAt)} 코치로 부임</span>` : '<span class="muted">마법사 길드 입단</span>'}</td></tr>`).join('')}
@@ -93,7 +95,7 @@ function viewRecruit(){
         ${n - ex < 3 && tab === 'new' ? `<button class="btn ghost" data-a="freeRecruit">무료 지원자 받기</button>` : ''}
         <button class="btn" data-a="nextSeason" ${ready ? '' : 'disabled'}>${ready ? `시즌 ${S.season+1} 시작` : '학생이 3명 이상 필요합니다'}</button>
       </div></div>
-    ${recruitTabs()}`;
+    ${cupRewardHtml()}${recruitTabs()}`;
   const diffBox = `<section class="panel" style="margin-top:1.4rem"><h3>다음 시즌 난이도</h3>${diffPicker(diffKey(), 'setDiff')}</section>`;
   if (tab === 'market') return head + marketHtml() + diffBox;
   return `${head}

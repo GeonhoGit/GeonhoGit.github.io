@@ -11,7 +11,7 @@ function startCup(){
   const seeds = shuffle([0, ...ai]);
   S.cup = {season:S.season, semis:[[seeds[0], seeds[1]], [seeds[2], seeds[3]]], round:0, final:null, winner:null, place:null, log:[]};
   S.phase = 'cup';
-  addNews(`마법사 컵 개막: 리그 상위 세 학교와 우리가 단판 토너먼트를 치릅니다. 우승 상금 ${CUP_PRIZE[0][0]}골드와 마법 도구가 걸려 있습니다.`);
+  addNews(`마법사 컵 개막: 리그 상위 세 학교와 우리가 단판 토너먼트를 치릅니다. 우승 상금 ${CUP_PRIZE[0][0]}골드와 희귀 마법 도구 선택 보상이 걸려 있습니다.`);
 }
 function cupOpponent(){
   const C = S.cup;
@@ -55,9 +55,8 @@ function finishCup(place){
   const champ = school(C.winner).name;
   if (place === 1){
     S.cupWins = (S.cupWins || 0) + 1;
-    const k = pick(GEARK.filter(x => GEAR[x].r === 2));
-    const got = addItem(k);
-    out.push(`마법사 컵 우승! 상금 ${g}골드, 명성 +${f}${got ? `, 마법 도구 ${GEAR[k].n}` : ' (도구함이 가득 차 도구는 받지 못했습니다)'}.`);
+    createCupReward();
+    out.push(`마법사 컵 우승! 상금 ${g}골드, 명성 +${f}. 희귀 마법 도구 세 가지 중 하나를 선택할 수 있습니다. 보상은 받을 때까지 보관됩니다.`);
     addNews(`${me().name}이(가) 마법사 컵에서 우승했습니다.`);
     const m = unlockAch('cupWin'); if (m) out.push(m);
   } else {
@@ -77,6 +76,6 @@ function cupHtml(){
     <h3 style="margin:0">마법사 컵 <span class="muted" style="font-size:.85rem">단판 토너먼트</span></h3>
     <p style="font-size:.9rem;margin:.4rem 0">${semis}</p>
     ${log}
-    ${C.winner != null ? `<p class="${C.winner === 0 ? 'good' : ''}" style="margin-top:.4rem">우승: ${esc(school(C.winner).name)}</p>` : `<p class="muted" style="font-size:.85rem;margin-top:.4rem">다음 경기: ${cupRoundName()}. 우승 상금 ${CUP_PRIZE[0][0]}골드와 희귀 마법 도구.</p>`}
+    ${C.winner != null ? `<p class="${C.winner === 0 ? 'good' : ''}" style="margin-top:.4rem">우승: ${esc(school(C.winner).name)}</p>` : `<p class="muted" style="font-size:.85rem;margin-top:.4rem">다음 경기: ${cupRoundName()}. 우승 상금 ${CUP_PRIZE[0][0]}골드와 희귀 마법 도구 선택 보상.</p>`}
   </section>`;
 }

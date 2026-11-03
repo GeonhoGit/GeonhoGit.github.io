@@ -22,12 +22,20 @@ const ACT = {
   },
   continue(){ S = loadSave(); if (!S) return; migrate(S); applyExpansion(); unlockExpansion(); save(); V.view = S.phase === 'graduation' ? 'graduation' : 'hub'; render(); },
   reset(){ if (V.confirmReset){ if (!clearSave()) return; S = null; V = {view:'start', startElem:'water'}; render(); } else { V.confirmReset = true; const b = document.querySelector('[data-a="reset"]'); if (b){ b.textContent = '정말 새로? 한 번 더'; } setTimeout(() => V.confirmReset = false, 3000); } },
-  go(v){ V.view = v; V.importErr = null; V.confirmImport = false; render(); window.scrollTo(0,0); },
+  go(v){ if (v === 'practice' && V.view !== 'practice') V.practice = null; V.view = v; V.importErr = null; V.confirmImport = false; render(); window.scrollTo(0,0); },
+  seasonPolicy(k){ if (chooseSeasonPolicy(k)){ save(); render(); } },
+  claimCupReward(v){ if (claimCupReward(v)){ save(); render(); } },
+  exchangeCupReward(v){ if (exchangeCupReward(v)){ save(); render(); } },
+  assignMentor(id){ if (assignMentor(id)){ save(); render(); } },
+  practiceStrategy(k){ if (setPracticeStrategy(k)) render(); },
+  practiceSwap(v){ if (swapPracticeFormation(v)) render(); },
+  practiceRun(){ runPractice(); render(); },
   startImport(){ V.startImport = !V.startImport; V.importErr = null; render(); },
   importStart(){ const t = document.getElementById('importText'); loadBackup(t ? t.value : ''); },
   importSave(){ const t = document.getElementById('importText'); const v = t ? t.value : '';
-    if (!V.confirmImport){ try { parseSave(v); } catch(e){ V.importErr = '저장 코드나 파일을 읽을 수 없습니다. 내보낸 내용을 빠짐없이 붙여 넣었는지 확인하세요.'; render(); return; }
-      V.confirmImport = true; V.importErr = null; const keep = v; render(); const t2 = document.getElementById('importText'); if (t2) t2.value = keep; return; }
+    V.importDraft = v;
+    if (V.confirmImport !== v){ try { parseSave(v); } catch(e){ V.importErr = '저장 코드나 파일을 읽을 수 없습니다. 내보낸 내용을 빠짐없이 붙여 넣었는지 확인하세요.'; render(); return; }
+      V.confirmImport = v; V.importErr = null; render(); return; }
     V.confirmImport = false; loadBackup(v); },
   makeCode(){ V.saveCode = saveCode(); V.backupNote = null; render(); },
   copyCode(){ copyCode(); },
@@ -52,15 +60,20 @@ const ACT = {
   tipsOff(){ S.tips = S.tips || {}; S.tips._off = true; save(); render(); },
   tipsReset(){ S.tips = {}; save(); render(); },
   helpJump(id){
-    const box = document.getElementById('helpSearch'); if (box && box.value){ box.value = ''; filterHelp(''); }
-    const el = document.getElementById('help-' + id); if (el && el.scrollIntoView) el.scrollIntoView({behavior: RM ? 'auto' : 'smooth', block:'start'});
+    if (!HELP_CATS.some(c => c.id === id)) return;
+    V.helpCat = id; V.helpQuery = ''; render();
+    const toc = document.querySelector('.help-toc'); if (toc && toc.scrollIntoView && window.scrollY > (toc.offsetTop || 0)) toc.scrollIntoView({block:'start'});
   },
   camp(){ const cost = campCost(); if (S.campSeason === S.season || !canInvest() || S.gold < cost) return; S.gold -= cost; S.campSeason = S.season;
     me().students.forEach(st => { st.cond = 100; const p = planOf(st), k = p && p !== 'rest' ? p : ['atk','def','int'].sort((a,b) => st[a] - st[b])[0]; st[k] = clamp(st[k] + 1.2, 10, STAT_MAX); });
     addNews('전지훈련으로 학생 전원이 컨디션을 회복하고 한 단계 성장했습니다.'); save(); render(); },
-  hireCoach(i){ const h = coachCandidates()[+i]; if (!h || coachActive() || !canInvest() || S.gold < COACH_COST) return; S.gold -= COACH_COST; S.myCoach = {name:h.name, season:S.season}; addNews(`졸업생 ${h.name}이(가) 이번 시즌 코치로 돌아왔습니다.`); unlockAch('mentor'); save(); render(); },
+  hireCoach(i){ const h = coachCandidates()[+i]; if (!h || coachActive() || !canInvest() || S.gold < COACH_COST) return; S.gold -= COACH_COST; S.myCoach = {name:h.name, hallId:mentorId(h), season:S.season}; addNews(`졸업생 ${h.name}이(가) 이번 시즌 코치로 돌아왔습니다.`); unlockAch('mentor'); save(); render(); },
   scholar(id){ const st = findSt(me(), id); if (!st || st.pot >= 5 || st.year >= 4 || st.scholar === S.season || !canInvest() || S.gold < scholarCost(st)) return; S.gold -= scholarCost(st); st.pot++; st.scholar = S.season; addNews(`${st.name}에게 장학금을 줘서 잠재력이 ${st.pot}이 됐습니다.`); S.scholarCount = (S.scholarCount || 0) + 1; if (S.scholarCount >= 3) unlockAch('patron'); save(); render(); },
-  eventChoose(k){ chooseEvent(k); render(); },
+  eventChoose(k){ chooseEvent(k); if (startStoryIfEligible()) save(); render(); },
+  storyChoice(v){ if (chooseStory(v)){ startStoryIfEligible(); save(); render(); } },
+  specialize(v){ const [sid,k] = v.split(':'); if (V.view !== 'students' || !specializationReady(findSt(me(),sid)) || !Object.hasOwn(SPECIALIZATIONS,k)) return; V.specializationChoice = {sid,key:k}; render(); },
+  specializeCancel(){ const choice = V.specializationChoice; V.specializationChoice = null; render(); if (choice) [...document.querySelectorAll('[data-a="specialize"]')].find(el=>el.dataset.v === `${choice.sid}:${choice.key}`)?.focus({preventScroll:true}); },
+  specializeConfirm(v){ const choice = V.specializationChoice; if (V.view !== 'students' || !choice || v !== `${choice.sid}:${choice.key}`) return; if (chooseSpecialization(choice.sid,choice.key)){ V.specializationChoice = null; save(); render(); document.getElementById(`specialization-${choice.sid}`)?.focus({preventScroll:true}); } },
   tactic(k){ if (B && V.view === 'battle' && !B.autoTac[0] && useTactic(B, 0, k)){ tacticState(); hud(); } },
   pause(){ if (!B || B.over || V.view !== 'battle') return; B.paused = !B.paused; lastFrame = null; accumulator = 0; battleControlState(); tacticState(); },
   autoTactic(){ if (!B || B.over || V.view !== 'battle') return; B.autoTac[0] = !B.autoTac[0]; S.autoTacticPref = B.autoTac[0]; save(); battleControlState(); tacticState(); refreshTutorial(); },
@@ -68,6 +81,15 @@ const ACT = {
   advBan(id){ const t = curTurn(); if (t && t.team === 0 && t.kind === 'ban') doDraft(0, id, null); },
   advPick(v){ const [id, sid] = v.split(':'); const t = curTurn(); if (t && t.team === 0 && t.kind === 'pick') doDraft(0, id, sid); },
   toggleAdvice(){ V.hideAdvice = !V.hideAdvice; render(); },
+  teamStrategy(k){
+    if (!STRATEGIES[k] || !D || V.view !== 'draft') return;
+    S.teamStrategy = k; D.strategies[0] = k; D.pred = null;
+    save(); render(); if (!curTurn()) schedulePrediction();
+  },
+  lineupSave(slot){ if (saveLineup(slot)){ save(); renderLineupControls(); } },
+  lineupSelect(slot){ if (selectLineup(slot)){ save(); renderLineupControls(); if (V.view === 'draft' && !curTurn()) schedulePrediction(); } },
+  lineupClear(){ if (clearLineup()){ save(); renderLineupControls(); } },
+  lineupPick(){ const p = lineupPick(); if (p) doDraft(0,p.champ,p.sid); },
   swapFormation(v){
     if (!D || V.view !== 'draft' || curTurn()) return;
     const ids = v.split(':').map(Number), [a,b] = ids;
@@ -88,7 +110,7 @@ const ACT = {
   speed(v){ if (!SPEEDS.includes(+v)) return; speed = +v; S.speedPref = speed; save(); document.querySelectorAll('.speed button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === String(v))); },
   skip(){ stopLoop(); B.autoTac[0] = true; runHeadless(B); B.headless = false; draw(); hud(); toResult(); },
   toResult(){ toResult(); },
-  afterResult(){ V.view = 'hub'; render(); window.scrollTo(0,0); },
+  afterResult(){ V.view = 'hub'; if (startStoryIfEligible()) save(); render(); window.scrollTo(0,0); },
   doGraduation(){ endSeason(); V.view = 'graduation'; render(); },
   recruit(id){ const p = S.prospects.find(x => x.id === id); if (!p || S.gold < p.cost || me().students.length >= ROSTER_MAX) return; S.gold -= p.cost; delete p.cost; S.prospects = S.prospects.filter(x => x !== p); joinTeam(p); save(); render(); },
   compareRecruit(id){ if (!(S.prospects || []).some(p => p.id === id)) return; V.compareRecruit = id; renderRecruitComparison(); },
@@ -102,9 +124,17 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('pointerdown', () => { if (musicOn()) musicStart(); });
 document.addEventListener('keydown', () => { if (musicOn()) musicStart(); });
+document.addEventListener('input', e => {
+  if (e.target.id !== 'importText') return;
+  V.importDraft = e.target.value; V.confirmImport = false;
+  const button = document.querySelector('[data-a="importSave"]');
+  if (button) button.textContent = '불러오기';
+});
 document.addEventListener('change', e => {
+  const practiceControl = e.target.closest('[data-practice]');
+  if (practiceControl && V.view === 'practice'){ if (configurePractice(practiceControl.dataset.practice,practiceControl.value)) render(); return; }
   if (e.target && e.target.id === 'importFile'){ const f = e.target.files && e.target.files[0]; if (!f) return;
-    const rd = new FileReader(); rd.onload = () => { const t = document.getElementById('importText'); if (t) t.value = String(rd.result || ''); }; rd.readAsText(f); return; }
+    const rd = new FileReader(); rd.onload = () => { V.importDraft = String(rd.result || ''); V.confirmImport = false; const t = document.getElementById('importText'); if (t) render(); }; rd.readAsText(f); return; }
   const g = e.target.closest('[data-gear]');
   if (g){ const st = findSt(me(), g.dataset.gear); if (st){ const v = g.value || null; if (v) me().students.forEach(o => { if (o.gear === v) o.gear = null; }); st.gear = v; save(); render(); } return; }
 });
