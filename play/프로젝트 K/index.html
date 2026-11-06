@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>타일 시티 — 나만의 도시를 짓다</title>
+<!-- 수정 배포 시 스타일·스크립트의 v 값을 함께 갱신해 구버전 캐시 혼합을 막습니다. -->
+<link rel="stylesheet" href="css/style.css?v=20261106-balance2">
+<link rel="stylesheet" href="css/management.css?v=20261106-balance2">
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="도시 지도. 도구를 선택해 건설하거나 살펴보기에서 드래그해 이동하세요."></canvas>
+<header id="topbar" class="panel">
+  <div class="city-brand"><svg class="brand-mark" width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true"><path d="M5 30V14h8V6h10v12h8v12H5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M17 12h2m-2 6h2M9 20h1m-1 5h1m7-1h2m8 0h1" stroke="currentColor" stroke-width="2"/></svg><div><span class="eyebrow">TILE CITY</span><div class="city-line"><span id="city-name" class="city-name" role="button" tabindex="0" title="도시 이름 바꾸기">새 도시</span><span id="city-title" class="city-title">정착지</span></div></div></div>
+  <div class="stats" aria-label="도시 현황">
+    <div class="stat stat-money" title="보유 자금과 지난달 수지"><span class="stat-label">도시 자금</span><div><b id="s-money">₩25,000</b> <small id="s-delta"></small></div></div>
+    <div class="stat"><span class="stat-label">인구</span><b id="s-pop">0</b></div>
+    <div class="stat"><span class="stat-label">행복도</span><b id="s-happy">60%</b></div>
+    <div id="stat-power" class="stat stat-supply supply-idle" title="전력이 끊긴 건물의 필요량도 포함합니다. 공급량은 연결된 발전소 기준입니다.">
+      <span class="stat-label"><span class="supply-icon" aria-hidden="true">⚡</span> 전력 <span class="unit">필요 / 공급</span></span>
+      <div class="stat-value"><b id="s-power">0 / 0</b></div>
+      <strong id="power-status" class="supply-status" role="status">공급 대기</strong>
+      <span id="power-detail" class="supply-detail">발전소를 연결하세요</span>
+      <button id="power-alert" class="supply-alert hidden" type="button"></button>
+    </div>
+    <div id="stat-water" class="stat stat-supply supply-idle" title="물이 끊긴 건물의 필요량도 포함합니다. 공급량은 연결된 급수 시설 기준입니다.">
+      <span class="stat-label"><span class="supply-icon" aria-hidden="true">💧</span> 수도 <span class="unit">필요 / 공급</span></span>
+      <div class="stat-value"><b id="s-water">0 / 0</b></div>
+      <strong id="water-status" class="supply-status" role="status">공급 대기</strong>
+      <span id="water-detail" class="supply-detail">급수 시설을 연결하세요</span>
+      <button id="water-alert" class="supply-alert hidden" type="button"></button>
+    </div>
+  </div>
+  <nav class="top-actions" aria-label="게임 메뉴"><button id="btn-news" class="tb-btn news-trigger" aria-label="도시 뉴스" title="도시 뉴스"><span aria-hidden="true">📰</span><span id="news-badge" class="news-badge hidden" aria-hidden="true"></span></button><button id="btn-save" class="tb-btn">저장</button><button id="btn-menu" class="tb-btn">메뉴</button><button id="btn-help" class="tb-btn help-btn" aria-label="도움말" title="조작법과 성장 규칙">?</button></nav>
+</header>
+
+<nav id="tool-dock" class="panel" aria-label="건설 도구 바">
+  <div id="toolbar" role="toolbar" aria-label="건설 도구 목록"></div>
+</nav>
+<div id="layer-tray" class="panel tray hidden" role="region" aria-label="지도 정보"><span class="tray-title">지도 정보</span><div id="overlays" aria-label="지도 정보 표시"></div></div>
+<nav id="bottom-bar" class="panel" aria-label="하단 메뉴">
+  <button id="tab-build" class="bar-tab" type="button" aria-pressed="true" aria-controls="tool-dock"><span class="bar-ic" aria-hidden="true">🏗️</span><span class="bar-label">건설</span></button>
+  <button id="btn-budget" class="bar-tab" type="button"><span class="bar-ic" aria-hidden="true">📊</span><span class="bar-label">예산<span class="wide-label">과 통계</span></span></button>
+  <button id="btn-management" class="bar-tab management-trigger" type="button"><span class="bar-ic" aria-hidden="true">📋</span><span class="bar-label">도시 운영</span><span id="management-badge" class="pending-badge hidden" aria-label="새 결정"></span></button>
+  <button id="tab-layers" class="bar-tab" type="button" aria-pressed="false" aria-controls="layer-tray"><span class="bar-ic" aria-hidden="true">🗺️</span><span class="bar-label">지도 정보</span><span id="layer-current" class="bar-sub"></span></button>
+</nav>
+<section id="active-tool" class="panel hidden" aria-label="도구 설명" aria-live="polite"><span id="active-tool-group" class="eyebrow">선택한 도구</span><h2 id="active-tool-name">살펴보기</h2><p id="active-tool-desc">지도를 드래그해 이동하고 건물을 눌러 정보를 확인하세요.</p><div id="active-tool-cost" class="tool-meta">마우스 휠로 확대 · 축소</div></section>
+
+<aside id="guide" class="panel hidden" aria-label="첫 도시 가이드">
+  <div class="guide-top"><span class="eyebrow">첫 도시 가이드</span><span id="guide-progress">01 / 06</span><button id="guide-dismiss" class="icon-btn" aria-label="첫 도시 가이드 닫기" title="가이드 닫기">×</button></div><h2 id="guide-title">도로로 시작하세요</h2><p id="guide-copy">도로가 도시의 시작입니다.</p><button id="guide-action" class="guide-action">도로 선택</button>
+</aside>
+
+<button id="news-bar" class="panel hidden" type="button" aria-label="최근 도시 뉴스"><span class="news-bar-icon" aria-hidden="true">📰</span><span id="news-date"></span><span id="news-headline"></span><span class="news-bar-arrow" aria-hidden="true">→</span></button>
+
+<aside id="right-panel" aria-label="도시 정보와 지도">
+  <div id="info" class="panel hidden" aria-label="선택한 칸 정보"></div>
+  <section id="rci" class="panel" title="막대가 가운데보다 높으면 새 구역의 수요가 있습니다.">
+    <div class="panel-heading"><span>도시 수요</span><span class="summary-hint">높을수록 성장</span></div>
+    <div class="rci-bars"><div class="rci-col res"><div class="rci-track"><div class="rci-fill" id="d-res"></div></div><span>주거</span></div><div class="rci-col com"><div class="rci-track"><div class="rci-fill" id="d-com"></div></div><span>상업</span></div><div class="rci-col ind"><div class="rci-track"><div class="rci-fill" id="d-ind"></div></div><span>공업</span></div></div>
+  </section>
+  <details id="map-panel" class="panel" open><summary class="panel-heading"><span>도시 지도</span><span class="summary-hint">눌러서 이동</span></summary><canvas id="minimap" width="160" height="160" aria-label="도시 전체 지도"></canvas></details>
+</aside>
+
+<div id="time-controls" class="panel" aria-label="시간 조작">
+  <div class="date-block"><b id="s-date">2026년 1월</b><span id="speed-state">일시정지</span></div>
+  <div class="speed" id="speed" aria-label="진행 속도"><button data-speed="0" title="일시정지 (Space)" aria-label="일시정지"><svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><button data-speed="1" title="보통 · 한 달 15초" aria-label="1배속">1×</button><button data-speed="2" title="빠르게 · 한 달 7.5초" aria-label="2배속">2×</button><button data-speed="3" title="매우 빠르게 · 한 달 5초" aria-label="3배속">3×</button></div><kbd class="space-hint">Space</kbd>
+  <div class="history-controls" role="group" aria-label="건설 기록"><button id="btn-undo" aria-label="되돌리기" title="되돌리기 (Ctrl+Z) · 되돌릴 작업이 없습니다." disabled>↶</button><button id="btn-redo" aria-label="다시 실행" title="다시 실행 (Ctrl+Y) · 다시 실행할 작업이 없습니다." disabled>↷</button></div>
+</div>
+<div id="zoom-controls" class="panel" aria-label="지도 확대와 축소"><button id="zoom-out" class="icon-btn" aria-label="지도 축소">−</button><span id="zoom-value">100%</span><button id="zoom-in" class="icon-btn" aria-label="지도 확대">+</button><span class="zoom-divider"></span><button id="zoom-reset" class="icon-btn" aria-label="지도 중앙으로 이동" title="중앙으로 이동">⌖</button></div>
+<div id="toasts" role="status" aria-live="polite"></div><div id="tooltip" class="hidden"></div>
+
+<div id="modal-start" class="modal" role="dialog" aria-modal="true" aria-labelledby="start-title">
+  <div class="modal-box start-box">
+    <div class="start-intro"><div class="start-wordmark">▥ <span>TILE CITY</span></div><span class="edition">도시 경영 시뮬레이션</span><h1 id="start-title">작은 길 하나,<br><em>나만의 도시로.</em></h1><p>길을 잇고, 일상을 채우고.<br>당신의 속도로 도시를 만들어 보세요.</p><div class="start-map" aria-hidden="true"><div class="mini-road horizontal"></div><div class="mini-road vertical"></div><i class="block b1"></i><i class="block b2"></i><i class="block b3"></i><i class="block b4"></i><i class="block b5"></i><i class="block b6"></i><i class="tree t1"></i><i class="tree t2"></i><i class="tree t3"></i><span class="map-pin">여기서 시작해요</span></div><div class="intro-footer"><span class="status-dot"></span> 작은 선택이 도시의 내일을 만듭니다</div></div>
+    <div class="start-form"><span class="eyebrow">새로운 시작</span><h2>도시를 소개해 주세요</h2><label for="in-name">도시 이름</label><input id="in-name" maxlength="16" value="새벽시" autocomplete="off">
+      <label for="scenario-select">어떤 도시를 만들까요?</label><select id="scenario-select" aria-describedby="scenario-description scenario-duration scenario-conditions"><option value="">자유 도시 · 제한 없이</option></select>
+      <div class="scenario-summary" aria-live="polite"><p id="scenario-description">나만의 속도로 자유롭게 도시를 성장시키세요.</p><span id="scenario-duration">기간 제한 없음</span><p id="scenario-conditions">기본 지형 · 선택한 시작 자금으로 시작</p></div>
+      <label for="disaster-select">재난</label><select id="disaster-select" class="disaster-select" aria-describedby="disaster-start-hint"><option value="off">끔</option><option value="rare" selected>가끔</option><option value="frequent">자주</option></select>
+      <p id="disaster-start-hint" class="field-hint">새 도시는 24개월이 지난 뒤 인구 300명부터 자동으로 발생합니다. 도시 메뉴에서 언제든 바꿀 수 있어요.</p>
+      <span class="field-label" id="difficulty-label">자유 도시 시작 자금</span>
+      <div class="diff" id="diff" aria-labelledby="difficulty-label"><button data-d="easy">여유롭게<small>₩50,000</small></button><button data-d="normal" class="on">균형 있게<small>₩25,000</small></button><button data-d="hard">도전적으로<small>₩10,000</small></button></div>
+      <p class="field-hint">시나리오는 위에 안내된 고유 자금과 지형으로 시작합니다.</p><div class="start-btns"><button id="btn-new" class="primary">새 도시 시작 <span aria-hidden="true">→</span></button><button id="btn-continue" class="hidden">저장한 도시 이어하기</button></div><div class="howto"><b>처음이어도 괜찮아요</b><p>도로부터 첫 주민이 이사 올 때까지,<br>화면 속 가이드가 순서대로 도와드려요.</p><div class="howto-shortcuts"><span><kbd>Space</kbd> 일시정지</span><span><kbd>휠</kbd> 확대 · 축소</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 도시 운영 -->
+<div id="modal-management" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="management-title">
+  <div class="modal-box management-box">
+    <button class="close" data-close="modal-management" aria-label="도시 운영 창 닫기">✕</button>
+    <span class="eyebrow">시민과 함께 만드는 내일</span><h2 id="management-title">도시 운영</h2>
+    <p class="modal-pause-note">생각할 시간은 충분해요. 창을 닫으면 도시가 이전 속도로 다시 움직입니다.</p>
+    <div class="management-tabs" role="tablist" aria-label="도시 운영 항목">
+      <button id="management-tab-quests" role="tab" aria-controls="management-content" aria-selected="true">시민 의뢰</button>
+      <button id="management-tab-events" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">소식과 이벤트</button>
+      <button id="management-tab-policies" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">운영 정책</button>
+      <button id="management-tab-development" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">특화·시설</button>
+      <button id="management-tab-challenge" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">도전 현황</button>
+    </div>
+    <div id="management-content" role="tabpanel" aria-labelledby="management-tab-quests"></div>
+  </div>
+</div>
+
+<!-- 예산 -->
+<div id="modal-budget" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="budget-title">
+  <div class="modal-box budget-box">
+    <button class="close" data-close="modal-budget" aria-label="예산 창 닫기">✕</button>
+    <h2 id="budget-title">📊 예산과 통계</h2>
+    <p class="modal-pause-note">일시정지 중 · 창을 닫으면 이전 속도로 돌아갑니다.</p>
+    <div class="budget-scroll">
+    <p id="budget-advice" class="hint"></p>
+    <div class="budget-grid">
+      <div>
+        <h3>세율</h3>
+        <div class="tax"><label for="tax-res">🏠 주거</label><input type="range" min="0" max="20" id="tax-res"><b id="tax-res-v"></b></div>
+        <div class="tax"><label for="tax-com">🏪 상업</label><input type="range" min="0" max="20" id="tax-com"><b id="tax-com-v"></b></div>
+        <div class="tax"><label for="tax-ind">🏭 공업</label><input type="range" min="0" max="20" id="tax-ind"><b id="tax-ind-v"></b></div>
+        <p class="hint">세율이 9%보다 높으면 수요와 행복도가 떨어집니다. 인구 300명부터 연료·정수·쓰레기·공공 서비스 운영비가 사용량만큼 늘어나요(1,500명에서 전액).</p>
+        <h3 id="budget-period">월 수입·지출</h3>
+        <table id="budget-table"></table>
+      </div>
+      <div>
+        <h3>도시 현황</h3>
+        <table id="city-table"></table>
+        <h3>추이</h3>
+        <canvas id="chart" width="340" height="170"></canvas>
+        <div class="legend"><span style="color:#6fd38a">■ 인구</span> <span style="color:#f2c94c">■ 자금</span></div>
+      </div>
+    </div>
+    <section id="finance-panel" class="finance-panel" aria-labelledby="finance-title">
+      <h3 id="finance-title">🏦 도시 채권</h3>
+      <p class="finance-note">60개월 · 연 6% · 매달 원금과 이자를 함께 상환합니다. 조기 상환은 남은 원금 전액이며 수수료가 없습니다.</p>
+      <div id="finance-summary" class="finance-summary"></div>
+      <div id="finance-offers" class="finance-offers" aria-label="도시 채권 발행 금액"></div>
+      <div id="finance-loans" class="finance-loans" aria-label="상환 중인 채권"></div>
+      <p id="finance-status" class="finance-status" role="status" aria-live="polite"></p>
+    </section>
+    </div>
+  </div>
+</div>
+
+<div id="modal-finance-crisis" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="finance-crisis-title">
+  <div class="modal-box finance-crisis-box">
+    <button class="close" data-close="modal-finance-crisis" aria-label="재정 위기 안내 닫기">✕</button>
+    <h2 id="finance-crisis-title">도시 재정 위기</h2>
+    <p class="modal-pause-note">자금이 −₩5,000 아래인 달이 6개월 이어졌습니다. 해결책을 살펴보는 동안 시간은 멈춥니다.</p>
+    <p id="finance-crisis-summary" class="finance-note"></p>
+    <div id="finance-emergency-info" class="finance-emergency-info"></div>
+    <div class="finance-crisis-actions"><button id="finance-emergency">긴급 채권 발행</button><button id="finance-review">세율과 지출 점검</button><button id="finance-continue">닫고 계속하기</button></div>
+    <p id="finance-crisis-status" class="finance-status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<div id="modal-news" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="news-title">
+  <div class="modal-box news-box">
+    <button class="close" data-close="modal-news" aria-label="도시 뉴스 닫기">✕</button>
+    <h2 id="news-title">📰 도시 소식</h2>
+    <p class="modal-pause-note">최근 30개 소식 · 날짜를 따라 도시의 변화를 살펴보세요.</p>
+    <div id="news-list" class="news-list"></div>
+  </div>
+</div>
+
+<!-- 메뉴 -->
+<div id="modal-menu" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="menu-title">
+  <div class="modal-box menu-box">
+    <button class="close" data-close="modal-menu" aria-label="메뉴 닫기">✕</button>
+    <h2 id="menu-title">☰ 도시 메뉴</h2>
+    <p class="modal-pause-note">잠시 쉬어 가세요. 도시의 시간이 멈춰 있어요.</p>
+    <button id="m-save">💾 저장 칸 선택</button>
+    <button id="m-load">📂 불러오기</button>
+    <button id="m-export">↗ 도시 내보내기</button>
+    <button id="m-import">↙ 도시 가져오기</button>
+    <button id="m-disasters">🌦️ 재난 설정</button>
+    <button id="m-settings">⚙️ 화면·소리 설정</button>
+    <button id="m-sound" aria-label="모든 소리 끄기" aria-pressed="true">🔊 소리 켜짐</button>
+    <button id="m-new">🆕 새 도시 (현재 진행 사라짐)</button>
+  </div>
+</div>
+
+<!-- 저장과 도시 옮기기 -->
+<div id="modal-settings" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+  <div class="modal-box settings-box">
+    <button class="close" data-close="modal-settings" aria-label="설정 닫기">✕</button>
+    <h2 id="settings-title">⚙️ 설정</h2>
+    <div class="settings-scroll">
+      <p class="settings-note">이 기기에 기억하며 도시 저장과 별도로 적용됩니다.</p>
+      <section aria-labelledby="settings-display-title">
+        <h3 id="settings-display-title">도시의 풍경</h3>
+        <label class="setting-toggle" for="setting-day-night"><span>낮·밤 표시<small>한 달 동안 낮과 밤이 한 번 바뀝니다. 움직임 줄이기를 사용하면 처음에는 꺼져 있어요.</small></span><input id="setting-day-night" type="checkbox"></label>
+        <label class="setting-toggle" for="setting-seasons"><span>계절 표시<small>겨울에는 전력 사용 +10%, 여름에는 물 사용 +10%. 끄면 풍경과 계절 수급 효과를 함께 끕니다.</small></span><input id="setting-seasons" type="checkbox"></label>
+      </section>
+      <section aria-labelledby="settings-sound-title">
+        <h3 id="settings-sound-title">도시의 소리</h3>
+        <label class="setting-toggle" for="setting-sound-enabled"><span>소리 켜기<small>소리를 꺼도 아래 볼륨을 미리 조절할 수 있어요.</small></span><input id="setting-sound-enabled" type="checkbox" checked></label>
+        <div class="setting-volume"><label for="setting-effects-volume">효과음 <output id="setting-effects-value" for="setting-effects-volume">40%</output></label><input id="setting-effects-volume" type="range" min="0" max="100" step="1" value="40" aria-valuetext="40%"></div>
+        <div class="setting-volume"><label for="setting-ambience-volume">배경음 <output id="setting-ambience-value" for="setting-ambience-volume">0%</output></label><input id="setting-ambience-volume" type="range" min="0" max="100" step="1" value="0" aria-valuetext="0%" aria-describedby="setting-ambience-hint"><p id="setting-ambience-hint">0%로 두면 배경음이 꺼집니다.</p></div>
+      </section>
+      <p id="settings-status" class="save-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
+<div id="modal-disasters" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="disasters-title">
+  <div class="modal-box disasters-box">
+    <button class="close" data-close="modal-disasters" aria-label="재난 설정 닫기">✕</button>
+    <h2 id="disasters-title">🌦️ 재난 설정</h2>
+    <div class="disasters-scroll">
+      <label for="disaster-mode">자동 재난</label>
+      <select id="disaster-mode" class="disaster-select" aria-describedby="disaster-mode-hint"><option value="off">끔</option><option value="rare">가끔</option><option value="frequent">자주</option></select>
+      <p id="disaster-mode-hint">새 도시는 24개월이 지난 뒤 인구 300명부터 발생합니다. 자주는 가끔의 3배 확률이에요. 끄더라도 진행 중인 피해는 남은 기간 후 회복됩니다.</p>
+      <p id="disaster-active" class="disaster-active"></p>
+      <h3>재난 일으키기</h3>
+      <p id="disaster-manual-hint">자동 재난 설정과 관계없이 즉시 발생합니다. 계절·인구에 관계없이 현재 도시에 실제 피해를 줍니다.</p>
+      <label for="disaster-kind">발생시킬 재난</label>
+      <div class="disaster-trigger-row"><select id="disaster-kind" class="disaster-select" aria-describedby="disaster-manual-hint"><option value="flood">홍수</option><option value="quake">지진</option><option value="typhoon">태풍</option></select><button id="disaster-trigger" class="danger-action">즉시 발생</button></div>
+      <p id="disaster-status" class="save-status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
+<div id="modal-saves" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="saves-title">
+  <div class="modal-box save-box">
+    <button class="close" data-close="modal-saves" aria-label="저장 칸 닫기">✕</button>
+    <h2 id="saves-title">저장한 도시</h2>
+    <p class="modal-pause-note">불러오면 현재 도시가 바뀝니다. 필요한 진행은 먼저 저장하세요.<br>상단 저장 버튼은 마지막으로 사용한 수동 저장 칸에 빠르게 저장합니다.</p>
+    <div id="save-slots" class="save-slots save-scroll"></div>
+    <p id="saves-status" class="save-status" role="status" aria-live="polite"></p>
+    <div class="save-actions"><button id="saves-export">도시 내보내기</button><button id="saves-import">도시 가져오기</button></div>
+  </div>
+</div>
+<div id="modal-save-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="save-confirm-title" aria-describedby="save-confirm-message">
+  <div class="modal-box save-confirm-box">
+    <button class="close" data-close="modal-save-confirm" aria-label="저장 확인 취소">✕</button>
+    <h2 id="save-confirm-title">저장을 변경할까요?</h2>
+    <p id="save-confirm-message"></p>
+    <div class="save-actions"><button id="save-confirm-cancel">취소</button><button id="save-confirm-accept" class="danger-action">확인</button></div>
+  </div>
+</div>
+<div id="modal-transfer" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="transfer-title">
+  <div class="modal-box transfer-box">
+    <button class="close" data-close="modal-transfer" aria-label="도시 옮기기 닫기">✕</button>
+    <h2 id="transfer-title">도시 옮기기</h2>
+    <div class="save-scroll">
+      <section id="transfer-export">
+        <p class="transfer-description">현재 도시를 다른 브라우저나 컴퓨터로 옮길 수 있습니다. 아래 내용을 복사하거나 파일로 보관하세요.</p>
+        <label for="export-code">내보낸 도시 데이터</label>
+        <textarea id="export-code" rows="7" readonly spellcheck="false"></textarea>
+        <div class="save-actions"><button id="export-copy">복사</button><button id="export-download">파일로 저장</button></div>
+      </section>
+      <section id="transfer-import" class="hidden">
+        <p class="transfer-description">다른 곳에서 내보낸 내용을 붙여넣거나 .txt·.json 파일을 선택하세요. 가져오면 현재 도시가 바뀌며, 저장 칸은 바뀌지 않습니다.</p>
+        <label for="import-file">도시 파일 선택</label>
+        <input id="import-file" type="file" accept=".txt,.json,text/plain,application/json">
+        <label for="import-code">도시 데이터 붙여넣기</label>
+        <textarea id="import-code" rows="7" spellcheck="false" placeholder="TILECITY1: 또는 도시 JSON"></textarea>
+        <div class="save-actions"><button id="import-load">도시 가져오기</button></div>
+      </section>
+    </div>
+    <p id="transfer-status" class="save-status" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<!-- 도움말 -->
+<div id="modal-help" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="modal-box help-box">
+    <button class="close" data-close="modal-help" aria-label="도움말 닫기">✕</button>
+    <h2 id="help-title">❓ 조작법과 팁</h2>
+    <p class="modal-pause-note">도움말을 읽는 동안 시간은 흐르지 않습니다.</p>
+    <h3>조작</h3>
+    <ul>
+      <li><b>마우스 휠</b>: 확대/축소 · <b>오른쪽(가운데) 드래그</b> 또는 <b>WASD/방향키</b>: 화면 이동</li>
+      <li><b>우클릭</b>: 건설을 취소하고 <b>살펴보기</b>로 돌아갑니다 (드래그 도중에도 취소). 살펴보기에서 우클릭하면 선택이 해제돼요.</li>
+      <li><b>도로</b>는 드래그해서 직선/ㄱ자로, <b>구역·철거</b>는 드래그해서 사각형으로 지정</li>
+      <li>단축키: <b>1</b> 도로 · <b>2</b> 주거 · <b>3</b> 상업 · <b>4</b> 공업 · <b>X</b> 철거 · <b>Esc</b> 살펴보기 · <b>Space</b> 일시정지</li>
+      <li><b>↶ Ctrl+Z</b>로 건설·철거·증설을 되돌리고 <b>↷ Ctrl+Y / Ctrl+Shift+Z</b>로 다시 실행합니다(Mac은 Cmd). 나무 정리비도 전액 돌려줘요. 드래그 한 번이 한 작업이며 최대 30개를 기억합니다.</li>
+      <li>작업 후 <b>30일이 지났거나 칸이 성장·변경되면</b> 되돌릴 수 없습니다. 다시 실행할 돈이 부족하면 멈춥니다. 새 도시·불러오기는 기록을 비우며, 창을 열거나 글을 입력 중일 때는 단축키가 작동하지 않아요.</li>
+      <li>미니맵을 클릭하면 그 위치로 이동합니다.</li>
+      <li>터치에서는 도구를 선택해 건설하고, <b>살펴보기</b>로 지도를 드래그해 이동합니다. <b>+·− 버튼</b>으로 확대·축소할 수 있어요.</li>
+      <li>기본 속도는 <b>한 달 15초</b>입니다. 메뉴·예산·도움말은 자동으로 시간을 멈춥니다.</li>
+      <li><b>메뉴 → 설정</b>에서 낮·밤과 계절을 켜거나 끕니다. 한 달에 한 번 낮과 밤이 바뀌며, 지도 정보를 켜면 밝게 보여요. 화면 동작 줄이기를 사용 중이면 낮·밤은 처음에 꺼져 있습니다.</li>
+    </ul>
+    <h3>성장 규칙</h3>
+    <ul>
+      <li>구역은 도로에서 <b>2칸 이내</b>여야 하고 <b>전기</b>가 들어와야 자랍니다. (🚧 도로 없음, ⚡ 전기 없음)</li>
+      <li>2단계 이상으로 크려면 <b>물</b>이 필요합니다. (💧 물 없음)</li>
+      <li><b>계절에 따라 전력·물 사용량이 달라져요.</b> 계절 표시를 켜면 겨울(12~2월)은 전력 +10%, 여름(6~8월)은 수도 +10%가 적용됩니다. 계절 표시를 끄면 사용량 변화도 사라집니다.</li>
+      <li>3단계 고층 건물은 땅값이 높아야 생깁니다. 공원·학교·경찰서가 땅값을 올려요.</li>
+      <li><b>운영비</b>: 도시가 쓰는 만큼 돈이 나가요. 화력 전력 1당 ₩0.20(태양광은 연료비 없음), 물 1당 ₩0.10, 쓰레기 처리 1당 ₩0.05~0.15, 서비스 범위 안 주민 1명당 치안·소방 ₩0.05·교육 ₩0.08·의료 ₩0.09. 인구 300명까지는 없고 1,500명에서 전액이에요. 흑자가 넉넉하면 세율을 낮춰 성장을 도우세요.</li>
+      <li>공장은 오염을 내뿜어 주변 땅값을 떨어뜨립니다. 주거지와 떨어뜨려 두세요.</li>
+      <li>집과 직장은 <b>같은 도로망의 45칸 이내</b>에 있어야 출근할 수 있어요. 끊긴 길과 부족한 일자리는 고용과 수입을 줄입니다.</li>
+      <li><b>큰길</b>은 인구 500명부터 건설합니다. 월 통행량 300명인 일반 도로를 750명까지 넓혀요. 새 큰길 ₩30 · 도로 확장 ₩20 · 큰 다리 ₩120 · 월 유지비 ₩0.8.</li>
+      <li><b>교통 지도</b>에서 빨간 도로를 확인하세요. 혼잡 50%까지는 벌점이 없고, 그 이상부터 땅값 최대 −12·주거 행복 최대 −8이 적용됩니다. 혼잡 85% 이상은 상업 성장을 늦춥니다. 예산에서 출근 혼잡과 실패 인원을 볼 수 있어요.</li>
+      <li><b>버스 정류장</b>은 인구 800명부터 도로 바로 옆에 설치합니다(₩300·월 ₩12, 반경 8칸). 집과 직장이 모두 정류장 범위라면 출근자의 25%가 버스를 탑니다.</li>
+      <li><b>지하철역</b>은 인구 3,000명부터 건설합니다(₩2,500·월 ₩60, 전력 15, 반경 10칸). 도로·전력이 연결된 역 2개 이상이 필요하며 서로 다른 역 범위의 출근자 50%를 수송합니다. 버스는 남은 인원에 적용돼요.</li>
+      <li><b>대중교통</b>은 도로로 출근 가능한 경로의 혼잡을 낮춥니다. 끊긴 도로는 먼저 연결하세요. 이용자당 월 ₩0.3의 요금과 범위 안 주거 행복 +2를 얻습니다. 대중교통 지도와 예산에서 확인하세요.</li>
+      <li><b>쓰레기</b>는 도로에서 3칸 이내의 같은 도로망 처리 시설이 월말에 수거합니다. 재활용센터(월 700) → 소각장(월 1,500·전력 20) → 매립지(총 60,000) 순서로 보내요. 매립지는 처음부터 지을 수 있고, 소각장은 인구 1,500명, 재활용센터는 2,500명부터입니다.</li>
+      <li>운영 중인 <b>재활용센터</b> 하나마다 도시 쓰레기 발생량을 15% 줄이며 최대 30%까지 적용합니다. 매립지와 소각장은 주거지에서 떨어뜨려 지으세요. 매립지는 70%·90%에 각각 경고하며 가득 차면 수거하지 못합니다.</li>
+      <li>수거하지 못한 쓰레기가 칸에 쌓여요. <b>40 이상</b>이면 🗑️ 표시와 행복·땅값 하락, <b>70 이상</b>이면 성장이 멈춥니다. 이번 달 발생분을 먼저 처리하고 남는 능력으로 밀린 쓰레기를 치웁니다. 예산에서 당월 처리율과 밀린 양을 따로 확인하세요.</li>
+      <li>건물이 성장하거나 쇠퇴하면 전력·수도는 매일 반영하고 <b>교통·쓰레기는 월말에 갱신</b>합니다. 예산의 도시 현황에서 갱신 예정 여부를 확인하세요. 건설·철거·재난·되돌리기·불러오기는 즉시 반영합니다.</li>
+      <li>소방서가 없으면 화재가 번져 건물이 잔해가 됩니다.</li>
+      <li><b>자동 재난</b>은 새 도시는 24개월이 지난 뒤 인구 300명부터 발생합니다. 시작 화면이나 메뉴의 재난 설정에서 끔·가끔·자주를 선택하세요. 가끔 기준 홍수는 6~8월 월 2%, 지진은 월 0.2%, 태풍은 7~9월 월 1.5%이며 자주는 확률이 3배입니다. 시작 시점 기록이 없는 기존 저장에는 유예를 적용하지 않으며, 수동 발생은 유예 중에도 가능합니다.</li>
+      <li><b>홍수</b>는 물가 2칸 이내를 5~10일 잠기게 합니다. 침수 도로는 통행·공급 연결이 끊기고 시설은 멈춥니다. 물에 맞닿은 땅에 <b>제방</b>(₩80·월 ₩0.5)을 지으면 물 반대편 뒤 2칸을 보호합니다. 구역의 침수 피해는 물이 빠진 뒤 다시 성장시켜야 해요.</li>
+      <li><b>지진</b>은 건물을 무너뜨릴 수 있습니다. 병원 범위는 붕괴 위험을 40%, 소방 범위는 후속 화재 위험을 50% 줄입니다. <b>태풍</b>은 폭 5칸을 지나며 나무와 낮은 건물을 훼손하고, 화력발전소 외 시설을 3일 멈춥니다.</li>
+      <li>재난을 끄면 새로운 자동 발생을 막으며, 이미 진행 중인 피해는 남은 기간이 지나면 끝납니다. 메뉴의 <b>재난 일으키기</b>는 자동 설정·인구·계절과 관계없이 즉시 발생시키므로 복구 준비를 먼저 하세요.</li>
+      <li>인구가 늘면 학교·병원·태양광·경기장이 해금되고 보너스 자금을 받습니다.</li>
+    </ul>
+    <h3>도시 운영</h3>
+    <ul>
+      <li><b>시민 의뢰</b>를 달성하면 도시 운영에서 보상금과 조기 건설 허가를 받으세요.</li>
+      <li><b>도시 신문 📰</b>은 매달 중요한 소식과 운영 조언 1~2개를 전합니다. 같은 종류의 기사는 6개월 동안 반복하지 않으며, 최근 30개는 신문 버튼으로 다시 읽을 수 있어요. 위치가 있는 기사는 눌러 해당 곳으로 이동하세요.</li>
+      <li>초반 가이드는 수도 다음에 인구 150명부터 쓰레기 시설을 안내합니다. 가이드가 끝나면 인구 100명 이상 도시에서 그 자리에 뉴스가 표시됩니다. 작은 화면에서는 📰 버튼의 읽지 않은 기사 수로 알려요. 화재·공급 중단은 즉시 알림, 교통·쓰레기·수입 같은 운영 상황은 월간 기사로 확인하세요.</li>
+      <li><b>소식과 이벤트</b>는 응답 기한 안에 선택합니다. 비용·효과·기간을 비교하세요. 미응답 제안은 별도 페널티 없이 만료됩니다.</li>
+      <li><b>운영 정책</b>은 혜택과 부담이 함께 있습니다. 도입 비용과 매달 유지비를 예산에 반영하세요.</li>
+      <li><b>도시 특화</b>는 도시 보너스를 고르는 기능입니다. 발전 시설은 인구나 조기 허가 조건으로 해금됩니다. 살펴보기로 지은 시설을 선택하면 두 단계까지 확장할 수 있어요.</li>
+      <li><b>시나리오</b>는 정해진 기간 안에 목표를 달성하는 도전입니다. 성공·실패 후에도 같은 도시에서 계속 플레이할 수 있습니다.</li>
+      <li><b>도시 채권</b>은 예산에서 ₩5,000·₩10,000·₩25,000을 빌려 연 6%, 60개월로 갚습니다. 남은 원금 한도는 ₩5,000 + 인구×10이며 최대 3건입니다. 조기 상환 수수료는 없어요. 도시 자금 목표는 <b>순자산 = 자금 − 남은 채권</b>으로 판정합니다.</li>
+      <li>자금이 −₩5,000 아래로 6개월 이어지면 <b>재정 위기</b> 안내가 뜹니다. 연 12% 긴급 채권 조건을 확인하거나 세율·지출을 점검하세요. 긴급 채권은 인구별 금액 한도를 넘을 수 있지만 3건 제한은 유지합니다. 같은 위기에는 한 번만 안내하며, 도움을 받지 않고 계속할 수도 있습니다.</li>
+      <li><b>저장 칸 3개</b>와 <b>자동 저장</b>을 따로 사용합니다. 6개월 자동 저장은 수동 칸을 덮지 않아요. 상단 저장은 최근 사용한 수동 칸, 이어하기는 가장 최근 저장을 엽니다.</li>
+      <li><b>도시 내보내기</b>로 문자열을 복사한 뒤 다른 브라우저나 폴더의 index.html에서 가져오세요. 클립보드·파일 기능이 막힌 화면에서도 텍스트 상자를 직접 복사해 옮길 수 있습니다. .txt/.json 파일도 가져올 수 있고, 잘못된 자료는 현재 도시를 바꾸지 않아요.</li>
+      <li><b>소리</b>는 메뉴 → 화면·소리 설정에서 조절합니다. 기본은 효과음 40%·배경음 끔이며 메뉴의 🔊/🔇로 빠르게 음소거할 수 있어요. 첫 클릭·키 입력 이후 소리가 시작됩니다. 배경음은 밤에 작아지고 일시정지하면 서서히 잦아듭니다.</li>
+    </ul>
+  </div>
+</div>
+
+<script src="js/data.js?v=20261106-balance2"></script>
+<script src="js/map.js?v=20261106-balance2"></script>
+<script src="js/civic.js?v=20261106-balance2"></script>
+<script src="js/development.js?v=20261106-balance2"></script>
+<script src="js/traffic.js?v=20261106-balance2"></script>
+<script src="js/transit.js?v=20261106-balance2"></script>
+<script src="js/history.js?v=20261106-balance2"></script>
+<script src="js/saves.js?v=20261106-balance2"></script>
+<script src="js/finance.js?v=20261106-balance2"></script>
+<script src="js/waste.js?v=20261106-balance2"></script>
+<script src="js/news.js?v=20261106-balance2"></script>
+<script src="js/disasters.js?v=20261106-balance2"></script>
+<script src="js/ambience.js?v=20261106-balance2"></script>
+<script src="js/audio.js?v=20261106-balance2"></script>
+<script src="js/sim.js?v=20261106-balance2"></script>
+<script src="js/render.js?v=20261106-balance2"></script>
+<script src="js/guide.js?v=20261106-balance2"></script>
+<script src="js/management-ui.js?v=20261106-balance2"></script>
+<script src="js/ui.js?v=20261106-balance2"></script>
+<script src="js/main.js?v=20261106-balance2"></script>
+</body>
+</html>

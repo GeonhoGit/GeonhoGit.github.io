@@ -1,5 +1,12 @@
 export const projects = [
   {
+    id: 'tile-city', repo: 'GeonhoGit.github.io', branch: 'main',
+    title: '타일 시티', eyebrow: '도시 경영 시뮬레이션', category: 'web',
+    description: '도로와 구역을 건설하고 예산과 공공시설을 관리하며 나만의 도시를 키우는 게임.',
+    tags: ['JavaScript', '시뮬레이션', '게임'], icon: '▦', tone: 'teal',
+    preview: 'play/프로젝트 K/index.html', sourcePath: 'play/프로젝트 K',
+  },
+  {
     id: 'dalbit-village', repo: 'GeonhoGit.github.io', branch: 'main',
     title: '달빛골', eyebrow: '생활 · 농장', category: 'web',
     description: '농사와 낚시를 즐기고 동물 이웃과 마을을 가꾸는 생활 게임.',

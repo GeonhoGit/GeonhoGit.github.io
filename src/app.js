@@ -1,5 +1,5 @@
-import { projects } from './catalog.js?v=5';
-import { defaultTab, filterProjects, githubFileUrl, initialFile, rawFileUrl, projectFiles, githubProjectUrl } from './model.js?v=5';
+import { projects } from './catalog.js?v=6';
+import { defaultTab, filterProjects, githubFileUrl, initialFile, rawFileUrl, projectFiles, githubProjectUrl } from './model.js?v=6';
 
 const root = document.querySelector('#app');
 const treeCache = new Map();

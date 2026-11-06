@@ -1,0 +1,78 @@
+/* 기존 지도 색을 이어가는 도시 운영 화면 */
+button, input, select { font:inherit; }
+select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.management-trigger { color:var(--accent); border-color:#617753; }
+.pending-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; margin-left:2px; border-radius:8px; color:var(--panel-deep); background:var(--accent); font-size:9px; font-weight:700; }
+#tool-tabs { grid-template-columns:repeat(3,1fr); }
+.tool.locked .cost { white-space:normal; overflow-wrap:anywhere; line-height:1.4; }
+.start-form select { width:100%; padding:11px 12px; border:1px solid #4a5b4d; border-radius:7px; background:var(--panel-deep); color:var(--text); font-size:12px; }
+.scenario-summary { border-left:2px solid #70895d; margin:12px 0 21px; padding:0 0 0 11px; font-size:10px; line-height:1.7; color:var(--muted); }
+.scenario-summary p { margin:4px 0; }
+#scenario-duration { color:var(--accent); font-weight:600; }
+#scenario-conditions { color:var(--dim); }
+.management-box { display:flex; flex-direction:column; width:860px; overflow:hidden; }
+.management-box > .eyebrow,.management-box > h2,.management-box > .modal-pause-note,.management-box > .management-tabs { flex-shrink:0; }
+.management-box > .eyebrow { color:var(--accent); margin-bottom:9px; }
+.management-box > h2 { margin-bottom:19px; }
+.management-tabs { display:flex; gap:5px; border-bottom:1px solid var(--line); margin:0 0 22px; overflow-x:auto; scrollbar-width:thin; }
+.management-tabs button { flex:none; border:0; border-bottom:2px solid transparent; background:transparent; padding:12px 14px; color:var(--muted); font-size:12px; }
+.management-tabs button.on { color:var(--accent); border-bottom-color:var(--accent); }
+.management-tabs button:hover { background:#ffffff05; color:var(--text); }
+#management-content { min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#617753 transparent; padding-right:5px; }
+.management-lead { margin:0 0 19px; color:var(--muted); font-size:12px; line-height:1.8; word-break:keep-all; }
+.management-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.management-card { display:flex; flex-direction:column; align-items:stretch; min-width:0; padding:19px; border:1px solid var(--line); border-radius:10px; background:var(--panel-deep); }
+.management-card.is-active { border-color:#7c9868; background:#263b2c; }
+.management-card.is-complete { opacity:.7; }
+.management-card-top { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; }
+.management-badge { display:inline-block; align-self:flex-start; color:var(--accent); font-size:10px; font-weight:600; letter-spacing:.01em; }
+.management-badge.is-warning { color:var(--gold); }
+.management-reward { color:var(--gold); font-size:13px; font-weight:700; font-variant-numeric:tabular-nums; }
+.management-card h3 { color:var(--text); font-size:16px; margin:13px 0 8px; letter-spacing:-.02em; }
+.management-card > p { margin:0 0 13px; color:var(--muted); line-height:1.75; font-size:11px; word-break:keep-all; }
+.management-card > p.management-effect { color:var(--accent); background:#ffffff04; padding:11px; border-radius:5px; }
+.management-progress-label { display:flex; justify-content:space-between; gap:12px; margin:3px 0 7px; color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+.management-progress-label b { color:var(--text); font-weight:500; }
+.management-progress { height:5px; margin-bottom:17px; overflow:hidden; border-radius:3px; background:#35483f; }
+.management-progress i { display:block; height:100%; background:var(--accent); border-radius:3px; }
+.management-card > p.management-permit { color:var(--gold); font-size:10px; }
+.management-action { align-self:flex-start; margin-top:auto; padding:9px 12px; border:1px solid #6c855b; border-radius:6px; color:var(--accent); background:#304532; font-size:11px; font-weight:600; }
+.management-action:hover:not(:disabled) { background:#3c5740; border-color:var(--accent); }
+.management-action:disabled { background:#202d26; border-color:#3c4b40; color:#8a9b8e; font-weight:400; }
+.management-empty { display:flex; min-height:270px; flex-direction:column; justify-content:center; align-items:center; padding:30px; text-align:center; border:1px dashed #4b6251; border-radius:10px; }
+.management-empty h3 { margin:12px 0; color:var(--text); font-size:19px; }
+.management-empty p { max-width:440px; margin:0; color:var(--muted); font-size:12px; line-height:1.9; word-break:keep-all; }
+.management-event { margin-bottom:20px; }
+.management-event h3 { margin:12px 0 8px; color:var(--text); font-size:24px; letter-spacing:-.03em; }
+.management-event > p { margin:0 0 10px; color:var(--muted); font-size:12px; line-height:1.8; }
+.management-facts { display:grid; gap:8px; margin:1px 0 17px; font-size:11px; }
+.management-facts > div { display:flex; justify-content:space-between; gap:14px; }
+.management-facts dt { color:var(--muted); }.management-facts dd { margin:0; font-variant-numeric:tabular-nums; }
+.management-cost { color:var(--gold)!important; font-size:11px; font-variant-numeric:tabular-nums; line-height:1.7; }
+.management-muted { color:var(--muted); font-size:10px; line-height:1.8; }
+.specialization-cards { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.management-box .management-section-title { margin:27px 0 10px; font-size:16px; color:var(--text); }
+.facility-list { border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+.facility-row { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:16px 18px; border-bottom:1px solid var(--line); background:var(--panel-deep); }
+.facility-row:last-child { border-bottom:0; }.facility-row h4 { margin:0 0 5px; font-size:14px; }.facility-row p { margin:3px 0; font-size:11px; color:var(--muted); line-height:1.7; }
+.facility-row .management-action { flex-shrink:0; align-self:center; margin:0; }
+.scenario-goals { border-top:1px solid var(--line); }
+.scenario-goal { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:17px 5px; border-bottom:1px solid var(--line); font-size:13px; }.scenario-goal b { font-variant-numeric:tabular-nums; color:var(--accent); }
+.management-outcome { padding:16px; margin:20px 0 0; background:#304532; border-radius:7px; color:#c0d5b3; font-size:12px; line-height:1.9; }
+.facility-upgrade { border-top:1px solid var(--line); margin-top:12px; padding-top:10px; }
+.facility-upgrade > p { font-size:10px; line-height:1.75; color:var(--muted); margin:8px 0; }
+.facility-upgrade .management-action { width:100%; margin-top:3px; }
+@media (max-width:760px) {
+  .city-title { display:none; }.city-name { max-width:80px; }
+  .top-actions { gap:3px; }.tb-btn { padding:7px 6px; font-size:10px; }.help-btn { width:25px; padding:5px 0; }
+  .pending-badge { position:absolute; top:-6px; right:-5px; margin:0; border:2px solid var(--panel); min-width:18px; height:18px; }
+  .management-trigger { position:relative; }
+  #tool-tabs { grid-template-columns:repeat(5,minmax(0,1fr)); }.tool-tab { padding:7px 0; font-size:10px; }
+  .management-box { padding:25px 16px 20px; }.management-box > .eyebrow { padding-right:25px; font-size:9px; }
+  .management-tabs { gap:0; margin-bottom:17px; }.management-tabs button { padding:12px 10px; font-size:11px; }
+  .management-cards,.specialization-cards { grid-template-columns:1fr; gap:12px; }.management-card { padding:16px; }
+  .management-card h3 { font-size:16px; }.management-lead { font-size:11px; }.management-event h3 { font-size:22px; }
+  .management-empty { padding:25px 18px; }.management-empty h3 { font-size:17px; }.management-empty p { font-size:11px; }
+  .facility-row { align-items:flex-start; gap:12px; padding:14px; flex-direction:column; }.facility-row .management-action { align-self:flex-start; }
+  .scenario-goal { font-size:12px; gap:10px; }.scenario-goal b { white-space:nowrap; }
+}

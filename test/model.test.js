@@ -43,19 +43,19 @@ test('프로젝트 H는 웹 게임 실행 파일을 연다', () => {
   assertPreviewFolder('Web_Game', 'H');
 });
 
-test('catalog includes the original repositories and the two new games', () => {
+test('catalog includes the original repositories and three local games', () => {
   const expected = [
     'CalculatorSample', 'chagoknyang', 'cursed-relic-hunter-3d',
     'dokkaebi-market', 'Dungeon-Auto-Legion', 'Gonu', 'haesol-metro',
     'k--', 'moneybook', 'moru-keugi', 'P.F', 'siwangjeon',
-    'unforgotten-night', 'Web_Game', 'GeonhoGit.github.io', 'GeonhoGit.github.io',
+    'unforgotten-night', 'Web_Game', 'GeonhoGit.github.io', 'GeonhoGit.github.io', 'GeonhoGit.github.io',
   ];
   assert.deepEqual(projects.map(project => project.repo).sort(), expected.sort());
   assert.ok(projects.every(project => project.repo !== 'home'));
 });
 
 test('new games point to their own playable folders', () => {
-  for (const [id, letter] of [['dalbit-village', 'I'], ['magic-league', 'J']]) {
+  for (const [id, letter] of [['dalbit-village', 'I'], ['magic-league', 'J'], ['tile-city', 'K']]) {
     const project = projects.find(item => item.id === id);
     assert.equal(project.preview, `play/프로젝트 ${letter}/index.html`);
     assert.equal(project.sourcePath, `play/프로젝트 ${letter}`);
