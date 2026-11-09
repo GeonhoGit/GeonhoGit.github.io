@@ -76,3 +76,16 @@ select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
   .facility-row { align-items:flex-start; gap:12px; padding:14px; flex-direction:column; }.facility-row .management-action { align-self:flex-start; }
   .scenario-goal { font-size:12px; gap:10px; }.scenario-goal b { white-space:nowrap; }
 }
+
+/* ===== 업적 ===== */
+.achievement-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; }
+.achievement { display:flex; gap:11px; align-items:flex-start; padding:12px; border:1px solid var(--line); border-radius:10px; background:#ffffff06; opacity:.62; }
+.achievement h3 { margin:0 0 3px; font-size:14px; }
+.achievement p { margin:0 0 6px; font-size:11px; line-height:1.5; color:var(--muted); }
+.achievement-icon { font-size:24px; line-height:1; width:34px; height:34px; display:grid; place-items:center; border-radius:9px; background:#0000002a; flex-shrink:0; }
+.achievement-state { font-size:10px; font-weight:700; color:var(--dim); }
+.achievement.is-elsewhere { opacity:.85; }
+.achievement.is-unlocked { opacity:1; border-color:#7fa165; background:#344b3955; }
+.achievement.is-unlocked .achievement-icon { background:#e8c95a33; }
+.achievement.is-unlocked .achievement-state { color:var(--accent); }
+@media (max-width:600px) { .achievement-grid { grid-template-columns:1fr; } .achievement { padding:10px; } }

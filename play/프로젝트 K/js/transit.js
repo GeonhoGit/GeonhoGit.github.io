@@ -33,12 +33,12 @@ const TRANSIT = {
     return { version: 1 };
   },
 
-  prepare() {
+  prepare(network = TRAFFIC.topology(), candidates = S?.tiles.keys()) {
     if (!S) return;
-    const network = TRAFFIC.topology(), stations = [];
-    for (let i = 0; i < S.tiles.length; i++) {
+    const stations = [];
+    for (const i of candidates) {
       const t = S.tiles[i];
-      if (!['busstop', 'subway'].includes(t.type) || t.root !== i) continue;
+      if ((t.type !== 'busstop' && t.type !== 'subway') || t.root !== i) continue;
       const d = facilityDefinition(t, i), entry = TRAFFIC.entry(i, d.size, network);
       stations.push({ i, type: t.type, radius: d.radius, size: d.size, entry,
         component: entry >= 0 ? network.component[entry] : -1,
@@ -107,6 +107,18 @@ const TRANSIT = {
   resetUsage() {
     this._usage = { busUsers: 0, subwayUsers: 0, totalCommuters: 0 };
     for (const station of this._stations) S.tiles[station.i].transitUsage = 0;
+  },
+
+  roadLoadFor(trip) {
+    // 출발지와 도착지를 모두 덮는 교통수단이 있어야 승객과 요금이 발생한다.
+    if ((!this._busCoverage[trip.home] || !this._busCoverage[trip.work]) &&
+        (!this._subwayCoverage[trip.home] || !this._subwayCoverage[trip.work])) {
+      this._usage.totalCommuters += trip.workers;
+      return trip.workers;
+    }
+    const split = this.modeSplit(trip);
+    this.record(trip, split);
+    return split.roadLoad;
   },
 
   record(trip, split) {

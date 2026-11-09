@@ -75,9 +75,10 @@ const OVERLAYS = [
 ];
 
 const DIFFICULTY = {
-  easy:   { name: '쉬움',   money: 50000 },
-  normal: { name: '보통',   money: 25000 },
-  hard:   { name: '어려움', money: 10000 },
+  // upkeep: 유지비·운영비·행정비 배율, reward: 성장 단계·시민 의뢰 보상 배율
+  easy:   { name: '쉬움',   money: 50000, upkeep: 0.85, reward: 1.25 },
+  normal: { name: '보통',   money: 25000, upkeep: 1,    reward: 1 },
+  hard:   { name: '어려움', money: 10000, upkeep: 1.25, reward: 0.5 },
 };
 
 const MILESTONES = [

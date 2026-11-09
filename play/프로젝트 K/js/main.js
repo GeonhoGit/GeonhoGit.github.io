@@ -15,6 +15,7 @@ function resetInput() {
   input.down = input.panning = input.moved = input.overCanvas = false;
   input.start = input.panStart = input.camStart = input.camStart0 = input.pointerId = null;
   R.hover = R.preview = null;
+  if (typeof touchPoints !== 'undefined') { touchPoints.clear(); touchGesture = null; }
   UI.tooltip(0, 0, null);
 }
 
@@ -89,7 +90,6 @@ function updatePreview() {
 
 function applyTool() {
   const tool = UI.tool;
-  const undoBefore = typeof UNDO !== 'undefined' ? UNDO.begin() : null;
   const hover = screenToTile(input.mx, input.my);
   const cells = toolCells(tool, input.start || hover, hover);
   let spent = 0, treeCost = 0, built = 0, lastReason = null;
@@ -99,7 +99,6 @@ function applyTool() {
     else if (r.reason && !r.skip && r.reason !== '철거할 것이 없음') lastReason = r.reason;
   }
   if (built > 0) {
-    if (typeof UNDO !== 'undefined') UNDO.commit(undoBefore, DEFS[tool].name);
     S.netDirty = true;
     recomputeAll();
     checkSupplyAlerts();
@@ -146,6 +145,31 @@ function zoomCamera(zoom, x = window.innerWidth / 2, y = window.innerHeight / 2)
   updatePreview();
 }
 
+// 두 손가락 터치: 건설 중이던 드래그를 버리고 지도를 옮기거나 확대·축소한다.
+const touchPoints = new Map();
+let touchGesture = null;
+function touchCenter() {
+  const pts = [...touchPoints.values()].slice(0, 2);
+  return { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2, d: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)) };
+}
+function startTouchGesture() {
+  input.down = input.panning = false;
+  input.start = input.pointerId = input.panStart = input.camStart = input.camStart0 = null;
+  R.preview = null;
+  UI.tooltip(0, 0, null);
+  const c = touchCenter();
+  touchGesture = { x: c.x, y: c.y, d: c.d, zoom: R.cam.zoom, camX: R.cam.x, camY: R.cam.y };
+}
+function moveTouchGesture() {
+  const g = touchGesture, c = touchCenter();
+  const zoom = Math.max(0.35, Math.min(2.5, g.zoom * c.d / g.d));
+  const wx = (g.x + g.camX) / g.zoom, wy = (g.y + g.camY) / g.zoom; // 처음 두 손가락 가운데의 지도 좌표
+  R.cam.zoom = zoom;
+  R.cam.x = wx * zoom - c.x; R.cam.y = wy * zoom - c.y;
+  clampCamera();
+  if (zoom !== g.lastZoom) { R.particles = []; updateZoomValue(); g.lastZoom = zoom; }
+}
+
 function setupInput() {
   const cv = R.canvas;
   // 터치는 브라우저의 암묵적 포인터 캡처가 있어도 실제 패널 위치를 검사합니다.
@@ -165,6 +189,11 @@ function setupInput() {
     });
   }
   cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch' && S && !UI.hasOpenModal()) {
+      touchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchPoints.size >= 2) { if (!touchGesture) startTouchGesture(); return; }
+    }
+    if (touchGesture) return;
     if (!S || !matchesPointer(e) || UI.hasOpenModal()) return;
     input.mx = e.clientX; input.my = e.clientY;
     input.overCanvas = true;
@@ -186,6 +215,10 @@ function setupInput() {
     }
   });
   window.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && touchPoints.has(e.pointerId)) {
+      touchPoints.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (touchGesture) { if (touchPoints.size >= 2) moveTouchGesture(); return; }
+    }
     if (!matchesPointer(e)) return;
     if (UI.hasOpenModal()) { resetInput(); return; }
     input.mx = e.clientX; input.my = e.clientY;
@@ -200,7 +233,17 @@ function setupInput() {
     }
     updatePreview();
   });
+  const endTouch = e => {
+    if (e.pointerType !== 'touch' || !touchPoints.has(e.pointerId)) return false;
+    touchPoints.delete(e.pointerId);
+    if (!touchGesture) return false;
+    // 남은 손가락은 아무것도 하지 않다가 모두 떼면 끝난다.
+    if (touchPoints.size === 0) { touchGesture = null; updatePreview(); }
+    else if (touchPoints.size >= 2) startTouchGesture();
+    return true;
+  };
   window.addEventListener('pointerup', e => {
+    if (endTouch(e)) return;
     if (!S || !matchesPointer(e)) return;
     if (UI.hasOpenModal()) { resetInput(); return; }
     input.mx = e.clientX; input.my = e.clientY;
@@ -228,7 +271,7 @@ function setupInput() {
       updatePreview();
     }
   });
-  window.addEventListener('pointercancel', e => { if (matchesPointer(e)) resetInput(); });
+  window.addEventListener('pointercancel', e => { if (endTouch(e)) return; if (matchesPointer(e)) resetInput(); });
   window.addEventListener('blur', resetInput);
   cv.addEventListener('wheel', e => {
     e.preventDefault();
@@ -255,14 +298,8 @@ function setupInput() {
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable) return;
     if (k === ' ' && (tag === 'BUTTON' || tag === 'SUMMARY')) return;
     if (!S) return;
-    if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'y')) {
-      e.preventDefault();
-      if (!e.repeat && typeof UNDO !== 'undefined') {
-        resetInput();
-        if (k === 'y' || e.shiftKey) UNDO.redo(); else UNDO.undo();
-      }
-      return;
-    }
+    // Ctrl/Cmd 조합 키는 게임에서 쓰지 않는다 (되돌리기 기능 없음).
+    if (e.ctrlKey || e.metaKey) return;
     input.keys[k] = true;
     if (k === ' ') {
       e.preventDefault();
@@ -333,6 +370,17 @@ function loop(now) {
   }
   requestAnimationFrame(loop);
 }
+
+function saveBeforeExit() {
+  // 시작 화면의 미리보기 도시는 제외하고, 일시정지·메뉴 상태도 저장한다.
+  if (S && UI.playing) saveGame(true);
+}
+// 종료 중에도 완료되도록 기존의 동기식 저장을 사용한다. 종료 확인창은 띄우지 않는다.
+window.addEventListener('beforeunload', saveBeforeExit);
+window.addEventListener('pagehide', saveBeforeExit);
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveBeforeExit();
+}, true);
 
 window.addEventListener('load', () => {
   if (typeof SOUND !== 'undefined') SOUND.init();

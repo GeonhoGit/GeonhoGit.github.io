@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>타일 시티 — 나만의 도시를 짓다</title>
 <!-- 수정 배포 시 스타일·스크립트의 v 값을 함께 갱신해 구버전 캐시 혼합을 막습니다. -->
-<link rel="stylesheet" href="css/style.css?v=20261106-balance2">
-<link rel="stylesheet" href="css/management.css?v=20261106-balance2">
+<link rel="stylesheet" href="css/style.css?v=20261109-startfit1">
+<link rel="stylesheet" href="css/management.css?v=20261109-startfit1">
 </head>
 <body>
 <canvas id="game" tabindex="0" aria-label="도시 지도. 도구를 선택해 건설하거나 살펴보기에서 드래그해 이동하세요."></canvas>
@@ -64,7 +64,6 @@
 <div id="time-controls" class="panel" aria-label="시간 조작">
   <div class="date-block"><b id="s-date">2026년 1월</b><span id="speed-state">일시정지</span></div>
   <div class="speed" id="speed" aria-label="진행 속도"><button data-speed="0" title="일시정지 (Space)" aria-label="일시정지"><svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><button data-speed="1" title="보통 · 한 달 15초" aria-label="1배속">1×</button><button data-speed="2" title="빠르게 · 한 달 7.5초" aria-label="2배속">2×</button><button data-speed="3" title="매우 빠르게 · 한 달 5초" aria-label="3배속">3×</button></div><kbd class="space-hint">Space</kbd>
-  <div class="history-controls" role="group" aria-label="건설 기록"><button id="btn-undo" aria-label="되돌리기" title="되돌리기 (Ctrl+Z) · 되돌릴 작업이 없습니다." disabled>↶</button><button id="btn-redo" aria-label="다시 실행" title="다시 실행 (Ctrl+Y) · 다시 실행할 작업이 없습니다." disabled>↷</button></div>
 </div>
 <div id="zoom-controls" class="panel" aria-label="지도 확대와 축소"><button id="zoom-out" class="icon-btn" aria-label="지도 축소">−</button><span id="zoom-value">100%</span><button id="zoom-in" class="icon-btn" aria-label="지도 확대">+</button><span class="zoom-divider"></span><button id="zoom-reset" class="icon-btn" aria-label="지도 중앙으로 이동" title="중앙으로 이동">⌖</button></div>
 <div id="toasts" role="status" aria-live="polite"></div><div id="tooltip" class="hidden"></div>
@@ -78,7 +77,7 @@
       <label for="disaster-select">재난</label><select id="disaster-select" class="disaster-select" aria-describedby="disaster-start-hint"><option value="off">끔</option><option value="rare" selected>가끔</option><option value="frequent">자주</option></select>
       <p id="disaster-start-hint" class="field-hint">새 도시는 24개월이 지난 뒤 인구 300명부터 자동으로 발생합니다. 도시 메뉴에서 언제든 바꿀 수 있어요.</p>
       <span class="field-label" id="difficulty-label">자유 도시 시작 자금</span>
-      <div class="diff" id="diff" aria-labelledby="difficulty-label"><button data-d="easy">여유롭게<small>₩50,000</small></button><button data-d="normal" class="on">균형 있게<small>₩25,000</small></button><button data-d="hard">도전적으로<small>₩10,000</small></button></div>
+      <div class="diff" id="diff" aria-labelledby="difficulty-label"><button data-d="easy">여유롭게<small>₩50,000 · 유지비 −15% · 보상 +25%</small></button><button data-d="normal" class="on">균형 있게<small>₩25,000</small></button><button data-d="hard">도전적으로<small>₩10,000 · 유지비 +25% · 보상 절반</small></button></div>
       <p class="field-hint">시나리오는 위에 안내된 고유 자금과 지형으로 시작합니다.</p><div class="start-btns"><button id="btn-new" class="primary">새 도시 시작 <span aria-hidden="true">→</span></button><button id="btn-continue" class="hidden">저장한 도시 이어하기</button></div><div class="howto"><b>처음이어도 괜찮아요</b><p>도로부터 첫 주민이 이사 올 때까지,<br>화면 속 가이드가 순서대로 도와드려요.</p><div class="howto-shortcuts"><span><kbd>Space</kbd> 일시정지</span><span><kbd>휠</kbd> 확대 · 축소</span></div></div>
     </div>
   </div>
@@ -96,6 +95,7 @@
       <button id="management-tab-policies" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">운영 정책</button>
       <button id="management-tab-development" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">특화·시설</button>
       <button id="management-tab-challenge" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">도전 현황</button>
+      <button id="management-tab-achievements" role="tab" aria-controls="management-content" aria-selected="false" tabindex="-1">업적</button>
     </div>
     <div id="management-content" role="tabpanel" aria-labelledby="management-tab-quests"></div>
   </div>
@@ -270,9 +270,9 @@
     <ul>
       <li><b>마우스 휠</b>: 확대/축소 · <b>오른쪽(가운데) 드래그</b> 또는 <b>WASD/방향키</b>: 화면 이동</li>
       <li><b>우클릭</b>: 건설을 취소하고 <b>살펴보기</b>로 돌아갑니다 (드래그 도중에도 취소). 살펴보기에서 우클릭하면 선택이 해제돼요.</li>
+      <li><b>휴대폰·태블릿</b>: 한 손가락으로 건설, <b>두 손가락</b>으로 지도 이동과 확대·축소. 건설을 그만두려면 도구 바의 🔍 살펴보기를 누르세요.</li>
       <li><b>도로</b>는 드래그해서 직선/ㄱ자로, <b>구역·철거</b>는 드래그해서 사각형으로 지정</li>
       <li>단축키: <b>1</b> 도로 · <b>2</b> 주거 · <b>3</b> 상업 · <b>4</b> 공업 · <b>X</b> 철거 · <b>Esc</b> 살펴보기 · <b>Space</b> 일시정지</li>
-      <li><b>↶ Ctrl+Z</b>로 건설·철거·증설을 되돌리고 <b>↷ Ctrl+Y / Ctrl+Shift+Z</b>로 다시 실행합니다(Mac은 Cmd). 나무 정리비도 전액 돌려줘요. 드래그 한 번이 한 작업이며 최대 30개를 기억합니다.</li>
       <li>작업 후 <b>30일이 지났거나 칸이 성장·변경되면</b> 되돌릴 수 없습니다. 다시 실행할 돈이 부족하면 멈춥니다. 새 도시·불러오기는 기록을 비우며, 창을 열거나 글을 입력 중일 때는 단축키가 작동하지 않아요.</li>
       <li>미니맵을 클릭하면 그 위치로 이동합니다.</li>
       <li>터치에서는 도구를 선택해 건설하고, <b>살펴보기</b>로 지도를 드래그해 이동합니다. <b>+·− 버튼</b>으로 확대·축소할 수 있어요.</li>
@@ -296,7 +296,7 @@
       <li><b>쓰레기</b>는 도로에서 3칸 이내의 같은 도로망 처리 시설이 월말에 수거합니다. 재활용센터(월 700) → 소각장(월 1,500·전력 20) → 매립지(총 60,000) 순서로 보내요. 매립지는 처음부터 지을 수 있고, 소각장은 인구 1,500명, 재활용센터는 2,500명부터입니다.</li>
       <li>운영 중인 <b>재활용센터</b> 하나마다 도시 쓰레기 발생량을 15% 줄이며 최대 30%까지 적용합니다. 매립지와 소각장은 주거지에서 떨어뜨려 지으세요. 매립지는 70%·90%에 각각 경고하며 가득 차면 수거하지 못합니다.</li>
       <li>수거하지 못한 쓰레기가 칸에 쌓여요. <b>40 이상</b>이면 🗑️ 표시와 행복·땅값 하락, <b>70 이상</b>이면 성장이 멈춥니다. 이번 달 발생분을 먼저 처리하고 남는 능력으로 밀린 쓰레기를 치웁니다. 예산에서 당월 처리율과 밀린 양을 따로 확인하세요.</li>
-      <li>건물이 성장하거나 쇠퇴하면 전력·수도는 매일 반영하고 <b>교통·쓰레기는 월말에 갱신</b>합니다. 예산의 도시 현황에서 갱신 예정 여부를 확인하세요. 건설·철거·재난·되돌리기·불러오기는 즉시 반영합니다.</li>
+      <li>건물이 성장하거나 쇠퇴하면 전력·수도는 매일 반영하고 <b>교통·쓰레기는 월말에 갱신</b>합니다. 예산의 도시 현황에서 갱신 예정 여부를 확인하세요. 건설·철거·재난·불러오기는 즉시 반영합니다.</li>
       <li>소방서가 없으면 화재가 번져 건물이 잔해가 됩니다.</li>
       <li><b>자동 재난</b>은 새 도시는 24개월이 지난 뒤 인구 300명부터 발생합니다. 시작 화면이나 메뉴의 재난 설정에서 끔·가끔·자주를 선택하세요. 가끔 기준 홍수는 6~8월 월 2%, 지진은 월 0.2%, 태풍은 7~9월 월 1.5%이며 자주는 확률이 3배입니다. 시작 시점 기록이 없는 기존 저장에는 유예를 적용하지 않으며, 수동 발생은 유예 중에도 가능합니다.</li>
       <li><b>홍수</b>는 물가 2칸 이내를 5~10일 잠기게 합니다. 침수 도로는 통행·공급 연결이 끊기고 시설은 멈춥니다. 물에 맞닿은 땅에 <b>제방</b>(₩80·월 ₩0.5)을 지으면 물 반대편 뒤 2칸을 보호합니다. 구역의 침수 피해는 물이 빠진 뒤 다시 성장시켜야 해요.</li>
@@ -312,35 +312,37 @@
       <li><b>소식과 이벤트</b>는 응답 기한 안에 선택합니다. 비용·효과·기간을 비교하세요. 미응답 제안은 별도 페널티 없이 만료됩니다.</li>
       <li><b>운영 정책</b>은 혜택과 부담이 함께 있습니다. 도입 비용과 매달 유지비를 예산에 반영하세요.</li>
       <li><b>도시 특화</b>는 도시 보너스를 고르는 기능입니다. 발전 시설은 인구나 조기 허가 조건으로 해금됩니다. 살펴보기로 지은 시설을 선택하면 두 단계까지 확장할 수 있어요.</li>
+      <li><b>업적</b> 탭에서 도시를 키우며 모은 업적 20개를 볼 수 있어요. 매달 말에 확인하며, 다른 도시에서 달성한 업적도 표시됩니다.</li>
       <li><b>시나리오</b>는 정해진 기간 안에 목표를 달성하는 도전입니다. 성공·실패 후에도 같은 도시에서 계속 플레이할 수 있습니다.</li>
+      <li><b>난이도</b>는 시작 자금 말고도 유지비와 보상을 바꿉니다. 도전적으로는 유지비 +25%·보상 절반, 여유롭게는 유지비 −15%·보상 +25%예요.</li>
       <li><b>도시 채권</b>은 예산에서 ₩5,000·₩10,000·₩25,000을 빌려 연 6%, 60개월로 갚습니다. 남은 원금 한도는 ₩5,000 + 인구×10이며 최대 3건입니다. 조기 상환 수수료는 없어요. 도시 자금 목표는 <b>순자산 = 자금 − 남은 채권</b>으로 판정합니다.</li>
       <li>자금이 −₩5,000 아래로 6개월 이어지면 <b>재정 위기</b> 안내가 뜹니다. 연 12% 긴급 채권 조건을 확인하거나 세율·지출을 점검하세요. 긴급 채권은 인구별 금액 한도를 넘을 수 있지만 3건 제한은 유지합니다. 같은 위기에는 한 번만 안내하며, 도움을 받지 않고 계속할 수도 있습니다.</li>
-      <li><b>저장 칸 3개</b>와 <b>자동 저장</b>을 따로 사용합니다. 6개월 자동 저장은 수동 칸을 덮지 않아요. 상단 저장은 최근 사용한 수동 칸, 이어하기는 가장 최근 저장을 엽니다.</li>
+      <li><b>저장 칸 3개</b>와 <b>자동 저장</b>을 따로 사용합니다. 6개월마다, 창·탭을 닫거나 새로고침할 때 자동 저장하며 일시정지 중에도 저장돼요. 수동 칸은 덮지 않아요. 상단 저장은 최근 사용한 수동 칸, 이어하기는 가장 최근 저장을 엽니다.</li>
       <li><b>도시 내보내기</b>로 문자열을 복사한 뒤 다른 브라우저나 폴더의 index.html에서 가져오세요. 클립보드·파일 기능이 막힌 화면에서도 텍스트 상자를 직접 복사해 옮길 수 있습니다. .txt/.json 파일도 가져올 수 있고, 잘못된 자료는 현재 도시를 바꾸지 않아요.</li>
       <li><b>소리</b>는 메뉴 → 화면·소리 설정에서 조절합니다. 기본은 효과음 40%·배경음 끔이며 메뉴의 🔊/🔇로 빠르게 음소거할 수 있어요. 첫 클릭·키 입력 이후 소리가 시작됩니다. 배경음은 밤에 작아지고 일시정지하면 서서히 잦아듭니다.</li>
     </ul>
   </div>
 </div>
 
-<script src="js/data.js?v=20261106-balance2"></script>
-<script src="js/map.js?v=20261106-balance2"></script>
-<script src="js/civic.js?v=20261106-balance2"></script>
-<script src="js/development.js?v=20261106-balance2"></script>
-<script src="js/traffic.js?v=20261106-balance2"></script>
-<script src="js/transit.js?v=20261106-balance2"></script>
-<script src="js/history.js?v=20261106-balance2"></script>
-<script src="js/saves.js?v=20261106-balance2"></script>
-<script src="js/finance.js?v=20261106-balance2"></script>
-<script src="js/waste.js?v=20261106-balance2"></script>
-<script src="js/news.js?v=20261106-balance2"></script>
-<script src="js/disasters.js?v=20261106-balance2"></script>
-<script src="js/ambience.js?v=20261106-balance2"></script>
-<script src="js/audio.js?v=20261106-balance2"></script>
-<script src="js/sim.js?v=20261106-balance2"></script>
-<script src="js/render.js?v=20261106-balance2"></script>
-<script src="js/guide.js?v=20261106-balance2"></script>
-<script src="js/management-ui.js?v=20261106-balance2"></script>
-<script src="js/ui.js?v=20261106-balance2"></script>
-<script src="js/main.js?v=20261106-balance2"></script>
+<script src="js/data.js?v=20261109-startfit1"></script>
+<script src="js/map.js?v=20261109-startfit1"></script>
+<script src="js/civic.js?v=20261109-startfit1"></script>
+<script src="js/development.js?v=20261109-startfit1"></script>
+<script src="js/traffic.js?v=20261109-startfit1"></script>
+<script src="js/transit.js?v=20261109-startfit1"></script>
+<script src="js/saves.js?v=20261109-startfit1"></script>
+<script src="js/finance.js?v=20261109-startfit1"></script>
+<script src="js/waste.js?v=20261109-startfit1"></script>
+<script src="js/news.js?v=20261109-startfit1"></script>
+<script src="js/disasters.js?v=20261109-startfit1"></script>
+<script src="js/achievements.js?v=20261109-startfit1"></script>
+<script src="js/ambience.js?v=20261109-startfit1"></script>
+<script src="js/audio.js?v=20261109-startfit1"></script>
+<script src="js/sim.js?v=20261109-startfit1"></script>
+<script src="js/render.js?v=20261109-startfit1"></script>
+<script src="js/guide.js?v=20261109-startfit1"></script>
+<script src="js/management-ui.js?v=20261109-startfit1"></script>
+<script src="js/ui.js?v=20261109-startfit1"></script>
+<script src="js/main.js?v=20261109-startfit1"></script>
 </body>
 </html>

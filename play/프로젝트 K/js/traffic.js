@@ -122,7 +122,7 @@ const TRAFFIC = {
     if (!S) return null;
     const network = this.topology(), tiles = S.tiles;
     const transit = typeof TRANSIT !== 'undefined' ? TRANSIT : null;
-    if (transit) transit.prepare();
+    const stationRoots = [];
     const homes = [], jobs = [], destinations = [], byEntry = new Map();
     let workers = 0, totalJobs = 0;
     for (let i = 0; i < tiles.length; i++) {
@@ -135,7 +135,10 @@ const TRAFFIC = {
       let com = 0, ind = 0, size = 1;
       if (t.type === 'com' && t.level > 0) com = ZONE_CAP.com[t.level];
       else if (t.type === 'ind' && t.level > 0) ind = ZONE_CAP.ind[t.level];
-      else if (t.type && t.root === i && isFacilityOperating(t, i)) {
+      else if (t.type && t.root === i) {
+        if (t.type === 'busstop' || t.type === 'subway') stationRoots.push(i);
+        const base = DEFS[t.type];
+        if (!(base?.comJobs || base?.indJobs) || !isFacilityOperating(t, i)) continue;
         const d = facilityDefinition(t, i);
         com = d.comJobs || 0; ind = d.indJobs || 0; size = d.size;
       }
@@ -151,6 +154,7 @@ const TRAFFIC = {
       destination.jobs.push(job); destination.com += com; destination.ind += ind;
       destination.capacity += job.capacity; destination.remaining += job.capacity;
     }
+    if (transit) transit.prepare(network, stationRoots);
     const signature = network.roads.map(i => tiles[i].lanes === 2 ? '2' : '1').join('')
       + '|' + homes.map(h => `${h.i}:${h.workers}`).join(',')
       + '|' + jobs.map(j => `${j.i}:${j.com}:${j.ind}:${j.entry}`).join(',')
@@ -203,10 +207,8 @@ const TRAFFIC = {
     if (transit) transit.resetUsage();
     const roadLoads = new Float64Array(count);
     for (const trip of trips) {
-      const split = transit ? transit.modeSplit(trip) : null;
-      const load = split ? split.roadLoad : trip.workers;
+      const load = transit ? transit.roadLoadFor(trip) : trip.workers;
       for (const i of trip.path) roadLoads[i] += load;
-      if (transit) transit.record(trip, split);
     }
     if (transit) transit.summary();
     const nearbySum = new Float64Array(count), nearbyCount = network.nearbyCount;

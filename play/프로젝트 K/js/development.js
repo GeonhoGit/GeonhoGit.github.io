@@ -15,9 +15,9 @@ const DEVELOPMENT = {
     { id:'industry', name:'산업 도시', description:'도시 수입 +12% · 공업 수요 +0.15 · 행복도 −2.' },
   ],
   scenarios: [
-    { id:'recovery', name:'적자 도시 재건', limit:36, description:'36개월 안에 인구 1,200명, 순자산 ₩5,000, 월 흑자 ₩100을 달성하세요. 순자산 = 자금 − 남은 채권.', startingConditions:'인구 720명 · 자금 ₩900 · 과잉 공공시설로 매달 적자. 불필요한 시설을 줄이고 세율을 조절하세요.' },
-    { id:'island', name:'섬 도시', limit:48, description:'48개월 안에 인구 1,500명과 순자산 ₩3,000을 달성하세요. 순자산 = 자금 − 남은 채권.', startingConditions:'자금 ₩20,000 · 바다로 둘러싸인 약 1,240칸의 섬. 한정된 땅에 도로와 구역을 계획하세요.' },
-    { id:'pollution', name:'오염 도시 복구', limit:24, description:'24개월 안에 인구 720명을 유지하며 주거 평균 오염 18 이하, 행복도 60을 달성하세요.', startingConditions:'인구 720명 · 자금 ₩10,000 · 주거지 옆 화력발전소와 공업지대. 시설 개선과 공원, 이전으로 환경을 회복하세요.' },
+    { id:'recovery', name:'적자 도시 재건', limit:36, description:'36개월 안에 인구 1,200명, 순자산 ₩5,000, 월 흑자 ₩100을 달성하세요. 순자산 = 자금 − 남은 채권.', startingConditions:'인구 720명 · 자금 ₩900 · 과잉 공공시설로 매달 적자 · 쓰레기 매립지 없음. 불필요한 시설을 줄이고, 매립지를 지어 쓰레기를 치우세요.' },
+    { id:'island', name:'섬 도시', limit:48, description:'48개월 안에 인구 4,000명과 순자산 ₩20,000을 달성하세요. 순자산 = 자금 − 남은 채권.', startingConditions:'자금 ₩20,000 · 바다로 둘러싸인 약 1,240칸의 섬. 섬을 거의 다 써야 4,000명이 살 수 있어요. 도로와 구역을 촘촘히 계획하세요.' },
+    { id:'pollution', name:'오염 도시 복구', limit:24, description:'24개월 안에 인구 1,200명, 주거 평균 오염 15 이하, 행복도 65를 달성하세요.', startingConditions:'인구 720명 · 자금 ₩10,000 · 주거지 옆 화력발전소와 공업지대 · 쓰레기 매립지 없음. 공장과 발전소를 주거지에서 멀리 옮기고, 일자리를 지키며 도시를 키우세요.' },
   ],
 
   normalize(raw) {
@@ -135,12 +135,10 @@ const DEVELOPMENT = {
       if (info.reason === '개선 비용이 부족합니다' && typeof SOUND !== 'undefined') SOUND.play('funds');
       return { ok:false, reason:info.reason };
     }
-    const undoBefore = typeof UNDO !== 'undefined' ? UNDO.begin() : null;
     S.money -= info.cost;
     S.tiles[info.root].upgrade = info.level + 1;
     S.netDirty = true;
     recomputeAll();
-    if (typeof UNDO !== 'undefined') UNDO.commit(undoBefore, '시설 증설');
     if (typeof SOUND !== 'undefined') SOUND.play('build');
     return { ok:true, cost:info.cost };
   },
@@ -148,7 +146,6 @@ const DEVELOPMENT = {
   initScenario(id) {
     if (id == null || id === '' || id === 'free') return;
     if (!this.scenarios.some(s => s.id === id)) throw new Error('알 수 없는 도전 도시입니다.');
-    if (typeof UNDO !== 'undefined') UNDO.clear();
     S.development ||= this.normalize();
     S.development.scenario = { id, months:0, status:'active' };
     S.tiles = Array.from({ length:MAP_W * MAP_H }, (_, i) => {
@@ -193,6 +190,7 @@ const DEVELOPMENT = {
     });
     exp.admin = adminCost(S.stats.pop);
     if (typeof operatingCosts === 'function') { const ops = operatingCosts(); exp.fuel = ops.fuel; exp.waterOps = ops.water; exp.wasteOps = ops.waste; exp.services = ops.services; }
+    if (typeof applyDifficultyUpkeep === 'function') applyDifficultyUpkeep(exp);
     const income = incRes + incCom + incInd, expense = Object.values(exp).reduce((a,b) => a+b, 0);
     S.budget = { incRes, incCom, incInd, exp, income, expense };
     S.stats.income = income; S.stats.expense = expense;
@@ -206,11 +204,11 @@ const DEVELOPMENT = {
     let goals;
     const netAssets = typeof FINANCE !== 'undefined' ? FINANCE.netAssets() : S.money;
     if (state.id === 'recovery') goals = [goal('population','인구',S.stats.pop,1200), goal('money','도시 순자산',Math.floor(netAssets),5000), goal('surplus','월 수지',Math.floor((S.budget?.income || 0) - (S.budget?.expense || 0)),100)];
-    else if (state.id === 'island') goals = [goal('population','인구',S.stats.pop,1500), goal('money','도시 순자산',Math.floor(netAssets),3000)];
+    else if (state.id === 'island') goals = [goal('population','인구',S.stats.pop,4000), goal('money','도시 순자산',Math.floor(netAssets),20000)];
     else {
       const homes = S.tiles.filter(t => t.type === 'res' && t.level > 0);
       const pollution = homes.length ? homes.reduce((sum,t) => sum+t.poll,0) / homes.length : 100;
-      goals = [goal('population','인구',S.stats.pop,720), goal('pollution','주거 평균 오염 (이하)',Math.round(pollution * 10) / 10,18,true), goal('happiness','행복도',Math.floor(S.stats.happiness),60)];
+      goals = [goal('population','인구',S.stats.pop,1200), goal('pollution','주거 평균 오염 (이하)',Math.round(pollution * 10) / 10,15,true), goal('happiness','행복도',Math.floor(S.stats.happiness),65)];
     }
     return { ...definition, ...state, goals };
   },

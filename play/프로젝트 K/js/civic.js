@@ -249,10 +249,11 @@ const CIVIC = {
     if (state.claimed.includes(id)) return { ok: false, reason: '이미 받은 보상입니다.' };
     if (!state.completed.includes(id)) return { ok: false, reason: '아직 의뢰 조건을 달성하지 못했습니다.' };
     state.claimed.push(id);
-    S.money += quest.reward;
+    const reward = typeof difficultyReward === 'function' ? difficultyReward(quest.reward) : quest.reward;
+    S.money += reward;
     if (quest.permit && !state.permits.includes(quest.permit)) state.permits.push(quest.permit);
     // 현금·건설 허가만 바뀌므로 도로 경로와 수거망을 다시 계산하지 않는다.
-    notify(`📋 ${quest.title} 보상 ₩${quest.reward.toLocaleString()}${quest.permitText ? ' · ' + quest.permitText : ''}`, 'good');
+    notify(`📋 ${quest.title} 보상 ₩${reward.toLocaleString()}${quest.permitText ? ' · ' + quest.permitText : ''}`, 'good');
     if (typeof SOUND !== 'undefined') SOUND.play('reward');
     return { ok: true };
   },
@@ -318,7 +319,7 @@ const CIVIC = {
       quests: this.quests.map(q => ({
         id: q.id, title: q.title, description: q.description, target: q.target, unit: q.unit,
         progress: state.progress[q.id], ready: state.completed.includes(q.id) && !state.claimed.includes(q.id),
-        claimed: state.claimed.includes(q.id), reward: q.reward, permit: q.permit || null, permitText: q.permitText || '',
+        claimed: state.claimed.includes(q.id), reward: typeof difficultyReward === 'function' ? difficultyReward(q.reward) : q.reward, permit: q.permit || null, permitText: q.permitText || '',
       })),
       policies, event, effects: this.modifiers(), monthlyCost: policyCost + eventCost, policyCost, eventCost,
     };

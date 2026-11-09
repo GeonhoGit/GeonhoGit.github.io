@@ -56,6 +56,30 @@ function shade(hex, f) {
 }
 function pick(arr, x, y, salt) { return arr[Math.floor(hash2(x * 7 + (salt || 0), y * 13) * arr.length)]; }
 
+// 창문 격자는 크기·색마다 한 번만 작은 그림으로 만들어 두고 복사한다 (큰 도시에서 사각형 수만 개를 줄임).
+const WINDOW_SPRITES = new Map();
+function windowSprite(color, rows, cols, cw) {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
+  const dpr = R.dpr || 1;
+  const key = `${color}|${rows}|${cols}|${Math.round(cw * 100)}|${dpr}`;
+  let sprite = WINDOW_SPRITES.get(key);
+  if (sprite !== undefined) return sprite;
+  if (WINDOW_SPRITES.size > 400) WINDOW_SPRITES.clear(); // 확대 단계를 오가며 쌓이지 않게
+  const w = cols * cw, h = (rows - 1) * 5 + 2.2;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(w * dpr)); canvas.height = Math.max(1, Math.ceil(h * dpr));
+    const g = canvas.getContext('2d');
+    if (!g) throw new Error('no 2d');
+    g.scale(dpr, dpr);
+    g.fillStyle = color;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) g.fillRect(c * cw + cw * 0.25, r * 5, cw * 0.5, 2.2);
+    sprite = { canvas, w: canvas.width / dpr, h: canvas.height / dpr };
+  } catch { sprite = null; }
+  WINDOW_SPRITES.set(key, sprite);
+  return sprite;
+}
+
 // 의사 3D 상자: 바닥 사각형(px,py,w,h) 위로 height 만큼 솟은 건물
 function box(ctx, px, py, w, h, height, top, side, windows) {
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
@@ -69,12 +93,16 @@ function box(ctx, px, py, w, h, height, top, side, windows) {
     ctx.fillRect(px + w * 0.06, py - height + h * 0.04, w * 0.88, h * 0.72);
   }
   if (windows && height > 6) {
-    ctx.fillStyle = windows;
     const rows = Math.floor((height - 3) / 5);
     const cols = Math.max(1, Math.floor(w / 5));
     const cw = w / cols;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      ctx.fillRect(px + c * cw + cw * 0.25, py + h - height + 2 + r * 5, cw * 0.5, 2.2);
+    const sprite = rows > 0 && typeof ctx.drawImage === 'function' ? windowSprite(windows, rows, cols, cw) : null;
+    if (sprite) ctx.drawImage(sprite.canvas, px, py + h - height + 2, sprite.w, sprite.h);
+    else {
+      ctx.fillStyle = windows;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        ctx.fillRect(px + c * cw + cw * 0.25, py + h - height + 2 + r * 5, cw * 0.5, 2.2);
+      }
     }
   }
   if (R.lightBuilding && R.nightStrength > 0 && height > 2) {
@@ -111,8 +139,16 @@ function render(dt, dayFraction = 0) {
     ctx.translate(Math.sin(age * 85 + 1) * strength, Math.cos(age * 71) * strength * 0.65);
   }
 
-  // 1) 지면
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawGround(ctx, x, y, ts, z);
+  // 1) 지면: 지형 바탕은 미리 그린 그림을 한 번에 복사하고, 칸마다 건물 바닥·도로·물결만 그린다.
+  const ground = groundCache(ctx);
+  if (ground) {
+    const sx = x0 * TILE, sy = y0 * TILE, sw = (x1 - x0 + 1) * TILE, sh = (y1 - y0 + 1) * TILE;
+    const smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = z < 1; // 축소할 때는 부드럽게(풀포기 점이 자글거리지 않게), 확대할 때는 칸 경계를 또렷하게
+    ctx.drawImage(ground, sx, sy, sw, sh, x0 * ts, y0 * ts, (x1 - x0 + 1) * ts, (y1 - y0 + 1) * ts);
+    ctx.imageSmoothingEnabled = smooth;
+  }
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawGround(ctx, x, y, ts, z, !!ground);
 
   // 2) 차량
   drawCars(ctx, ts, z);
@@ -256,39 +292,167 @@ function drawDisasterEffects(ctx, ts) {
   ctx.restore();
 }
 
-function drawGround(ctx, x, y, ts, z) {
-  const t = S.tiles[idx(x, y)];
-  const px = x * ts, py = y * ts;
-  const h = hash2(x, y);
+// 지형(풀·모래·물 바탕)은 도시 지도와 계절이 바뀔 때만 다시 그린다. 큰 도시에서 칸마다 색을 만드는 비용을 없앤다.
+function groundCache(ctx) {
+  if (typeof ctx.drawImage !== 'function' || typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
   const season = R.season || 'spring';
+  if (R.ground && R.ground.tiles === S.tiles && R.ground.season === season) return R.ground.canvas;
+  let canvas = R.ground?.canvas;
+  try {
+    if (!canvas) { canvas = document.createElement('canvas'); canvas.width = MAP_W * TILE; canvas.height = MAP_H * TILE; }
+    const g = canvas.getContext('2d');
+    if (!g) return null;
+    const time = R.time; R.time = 0;
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) drawTerrain(g, x, y, x * TILE, y * TILE, TILE, 1, season, false, false);
+    R.time = time;
+  } catch { R.ground = null; return null; }
+  R.ground = { canvas, tiles: S.tiles, season };
+  return canvas;
+}
+
+function drawWinterShore(ctx, x, y, px, py, ts) {
+  const land = (dx, dy) => inMap(x + dx, y + dy) && S.tiles[idx(x + dx, y + dy)].t !== TERRAIN.WATER;
+  if (land(0, -1)) drawShoreIce(ctx, x, y, px, py, ts, 'n');
+  if (land(0, 1)) drawShoreIce(ctx, x, y, px, py, ts, 's');
+  if (land(-1, 0)) drawShoreIce(ctx, x, y, px, py, ts, 'w');
+  if (land(1, 0)) drawShoreIce(ctx, x, y, px, py, ts, 'e');
+}
+
+// 겨울 물가 얼음: 땅에 붙은 얼음판(들쭉날쭉한 끝) + 금 간 무늬 + 떨어져 나간 얼음 조각
+function drawShoreIce(ctx, x, y, px, py, ts, side) {
+  const salt = { n: 1, s: 2, w: 3, e: 4 }[side];
+  // u: 물가를 따라가는 거리, v: 땅에서 물 쪽으로 들어간 깊이
+  const at = (u, v) => side === 'n' ? [px + u, py + v] : side === 's' ? [px + u, py + ts - v]
+    : side === 'w' ? [px + v, py + u] : [px + ts - v, py + u];
+  const rect = (u, v, du, dv) => {
+    const [ax, ay] = at(u, v), [bx, by] = at(u + du, v + dv);
+    ctx.fillRect(Math.min(ax, bx), Math.min(ay, by), Math.abs(bx - ax), Math.abs(by - ay));
+  };
+  const r = k => hash2(x * 5 + k * 3 + salt, y * 7 + k + salt * 11);
+  // 1) 땅에 붙은 얼음 띠
+  ctx.fillStyle = 'rgba(214,235,242,0.92)';
+  rect(0, 0, ts, ts * 0.16);
+  // 2) 물 쪽으로 들쭉날쭉하게 뻗은 얼음판 가장자리
+  ctx.fillStyle = 'rgba(232,244,249,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(...at(0, ts * 0.15));
+  for (let k = 0; k <= 5; k++) ctx.lineTo(...at(ts * k / 5, ts * (0.2 + r(k) * 0.16)));
+  ctx.lineTo(...at(ts, ts * 0.15));
+  ctx.closePath(); ctx.fill();
+  // 3) 땅 쪽 밝은 테두리
+  ctx.fillStyle = 'rgba(250,253,255,0.75)';
+  rect(0, 0, ts, Math.max(1, ts * 0.035));
+  // 4) 얼음 금
+  ctx.strokeStyle = 'rgba(112,156,184,0.85)';
+  ctx.lineWidth = Math.max(0.7, ts * 0.022);
+  for (let k = 0; k < 3; k++) {
+    const u = ts * (0.12 + r(10 + k) * 0.76);
+    ctx.beginPath();
+    ctx.moveTo(...at(u, ts * 0.03));
+    ctx.lineTo(...at(u + ts * (r(20 + k) - 0.5) * 0.14, ts * 0.13));
+    ctx.lineTo(...at(u + ts * (r(30 + k) - 0.5) * 0.2, ts * 0.24));
+    ctx.stroke();
+  }
+  // 5) 떨어져 나간 작은 얼음 조각
+  ctx.fillStyle = 'rgba(232,244,249,0.9)';
+  if (r(40) > 0.3) rect(ts * (0.12 + r(41) * 0.6), ts * (0.42 + r(42) * 0.08), ts * (0.1 + r(43) * 0.1), ts * 0.07);
+  if (r(44) > 0.6) rect(ts * (0.2 + r(45) * 0.6), ts * (0.55 + r(46) * 0.06), ts * 0.07, ts * 0.05);
+}
+
+function drawTerrain(ctx, x, y, px, py, ts, z, season, animate = true, ice = true) {
+  const t = S.tiles[idx(x, y)];
+  const h = hash2(x, y);
   if (t.t === TERRAIN.WATER) {
     ctx.fillStyle = `hsl(208, 58%, ${38 + h * 4}%)`;
     ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
-    if (z > 0.5) {
+    if (animate && z > 0.5) {
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
       const wv = Math.sin(R.time * 1.5 + x * 0.9 + y * 0.6);
       ctx.fillRect(px + ts * (0.2 + 0.1 * wv), py + ts * (0.3 + h * 0.4), ts * 0.35, Math.max(1, ts * 0.05));
     }
-    if (season === 'winter') {
-      ctx.fillStyle = 'rgba(214,235,242,0.78)';
-      const edge = ts * 0.17;
-      if (inMap(x, y - 1) && S.tiles[idx(x, y - 1)].t !== TERRAIN.WATER) ctx.fillRect(px, py, ts, edge);
-      if (inMap(x, y + 1) && S.tiles[idx(x, y + 1)].t !== TERRAIN.WATER) ctx.fillRect(px, py + ts - edge, ts, edge);
-      if (inMap(x - 1, y) && S.tiles[idx(x - 1, y)].t !== TERRAIN.WATER) ctx.fillRect(px, py, edge, ts);
-      if (inMap(x + 1, y) && S.tiles[idx(x + 1, y)].t !== TERRAIN.WATER) ctx.fillRect(px + ts - edge, py, edge, ts);
-    }
+    if (season === 'winter' && ice) drawWinterShore(ctx, x, y, px, py, ts);
   } else if (t.t === TERRAIN.SAND) {
     ctx.fillStyle = `hsl(45, 48%, ${68 + h * 5}%)`;
     ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
   } else {
-    ctx.fillStyle = season === 'summer' ? `hsl(${100 + h * 8}, 48%, ${34 + h * 5}%)`
-      : season === 'autumn' ? `hsl(${86 + h * 9}, 30%, ${43 + h * 6}%)`
-      : season === 'winter' ? `hsl(${95 + h * 8}, 18%, ${72 + h * 4}%)` : `hsl(${95 + h * 12}, 42%, ${40 + h * 6}%)`;
-    ctx.fillRect(px, py, ts + 0.5, ts + 0.5);
-    if (z > 0.7 && h > 0.7) {
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.fillRect(px + ts * h * 0.6, py + ts * (1 - h) * 0.8, ts * 0.1, ts * 0.1);
+    // 풀밭: 칸마다 뚝뚝 다른 색 대신 넓게 부드럽게 변하는 색(바둑판 무늬 방지).
+    // 미리 그리는 지형 그림(animate=false)에서는 한 칸을 4×4로 나눠 더 매끈하게 칠한다.
+    const sub = animate ? 1 : 4, cell = ts / sub;
+    for (let sy = 0; sy < sub; sy++) for (let sx = 0; sx < sub; sx++) {
+      const n = terrainNoise(x + (sx + 0.5) / sub, y + (sy + 0.5) / sub);
+      ctx.fillStyle = grassColor(season, n, h);
+      ctx.fillRect(px + sx * cell, py + sy * cell, cell + 0.5, cell + 0.5);
     }
+    if (z > 0.7) drawGrassDetail(ctx, x, y, px, py, ts, season, h);
+  }
+}
+
+// 0~1 사이의 부드러운 값 잡음: 7칸 간격 격자점의 난수를 매끄럽게 이어 붙인다.
+function terrainNoise(fx, fy) {
+  const C = 7, gx = Math.floor(fx / C), gy = Math.floor(fy / C);
+  const u0 = fx / C - gx, v0 = fy / C - gy;
+  const u = u0 * u0 * (3 - 2 * u0), v = v0 * v0 * (3 - 2 * v0);
+  const a = hash2(gx * 7 + 3, gy * 13 + 5), b = hash2(gx * 7 + 10, gy * 13 + 5);
+  const c = hash2(gx * 7 + 3, gy * 13 + 18), d = hash2(gx * 7 + 10, gy * 13 + 18);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+function grassColor(season, n, h) {
+  const j = (h - 0.5) * 0.9; // 칸마다 아주 작은 차이만 남긴다
+  if (season === 'summer') return `hsl(${101 + n * 10}, 46%, ${33 + n * 6 + j}%)`;
+  if (season === 'autumn') return `hsl(${78 + n * 14}, 32%, ${41 + n * 6 + j}%)`;
+  if (season === 'winter') return `hsl(${96 + n * 8}, 16%, ${71 + n * 4 + j * 0.6}%)`;
+  return `hsl(${94 + n * 14}, 40%, ${38 + n * 7 + j}%)`;
+}
+
+// 풀포기·꽃·낙엽·눈 반짝임 같은 작은 장식 (지형 그림에 한 번만 그려 두므로 매 프레임 비용 없음)
+function drawGrassDetail(ctx, x, y, px, py, ts, season, h) {
+  const r = k => hash2(x * 31 + k * 17, y * 47 + k * 7);
+  if (h > 0.45) {
+    ctx.fillStyle = season === 'winter' ? 'rgba(120,140,130,0.35)' : season === 'autumn' ? 'rgba(92,92,40,0.45)' : 'rgba(30,80,30,0.38)';
+    const tufts = h > 0.8 ? 3 : 2;
+    for (let k = 0; k < tufts; k++) {
+      const tx = px + ts * (0.12 + r(k) * 0.72), ty = py + ts * (0.15 + r(k + 5) * 0.65);
+      ctx.fillRect(tx, ty, ts * 0.03, ts * 0.09);
+      ctx.fillRect(tx + ts * 0.05, ty + ts * 0.02, ts * 0.03, ts * 0.07);
+      ctx.fillRect(tx - ts * 0.05, ty + ts * 0.03, ts * 0.03, ts * 0.06);
+    }
+  }
+  const extra = r(20);
+  if (season === 'spring' && extra > 0.86) {
+    const colors = ['#f4f1e4', '#f2d64b', '#e9a0b8'];
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = colors[(k + Math.floor(extra * 10)) % 3];
+      ctx.fillRect(px + ts * (0.15 + r(30 + k) * 0.7), py + ts * (0.15 + r(40 + k) * 0.7), ts * 0.06, ts * 0.06);
+    }
+  } else if (season === 'summer' && extra > 0.9) {
+    ctx.fillStyle = '#f2d64b';
+    ctx.fillRect(px + ts * (0.2 + r(31) * 0.6), py + ts * (0.2 + r(41) * 0.6), ts * 0.06, ts * 0.06);
+  } else if (season === 'autumn' && extra > 0.75) {
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = ['#c9672d', '#d9a03a', '#a8462b'][k];
+      ctx.fillRect(px + ts * (0.1 + r(50 + k) * 0.75), py + ts * (0.1 + r(60 + k) * 0.75), ts * 0.07, ts * 0.05);
+    }
+  } else if (season === 'winter' && extra > 0.7) {
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    for (let k = 0; k < 2; k++) ctx.fillRect(px + ts * (0.1 + r(70 + k) * 0.8), py + ts * (0.1 + r(80 + k) * 0.8), ts * 0.05, ts * 0.05);
+  }
+}
+
+function drawGround(ctx, x, y, ts, z, terrainCached = false) {
+  const t = S.tiles[idx(x, y)];
+  const px = x * ts, py = y * ts;
+  const h = hash2(x, y);
+  const season = R.season || 'spring';
+  if (!terrainCached) drawTerrain(ctx, x, y, px, py, ts, z, season);
+  else if (t.t === TERRAIN.WATER) {
+    // 물결은 매 프레임 움직이고, 겨울 얼음은 확대해도 깨지지 않게 실제 크기로 그린다.
+    if (z > 0.5 && t.type !== 'road') {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      const wv = Math.sin(R.time * 1.5 + x * 0.9 + y * 0.6);
+      ctx.fillRect(px + ts * (0.2 + 0.1 * wv), py + ts * (0.3 + h * 0.4), ts * 0.35, Math.max(1, ts * 0.05));
+    }
+    if (season === 'winter') drawWinterShore(ctx, x, y, px, py, ts);
   }
   if (!t.type) return;
   if (t.type === 'road') return drawRoad(ctx, x, y, px, py, ts, z, t);
@@ -529,6 +693,10 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
   const s = ts / 32;
   const d = DEFS[t.type];
   const W = d.size * ts;
+  const rect = (color, rx, ry, rw, rh) => { ctx.fillStyle = color; ctx.fillRect(px + rx * s, py + ry * s, rw * s, rh * s); };
+  const dot = (color, cx, cy, r) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px + cx * s, py + cy * s, r * s, 0, 7); ctx.fill(); };
+  const detail = z >= 0.6;
+  const blink = Math.floor(R.time * 2 + x * 0.7 + y * 1.3) % 2 === 0;
   const icon = (ic, cx, cy, size) => {
     if (z < 0.45) return;
     ctx.font = `${size}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
@@ -561,7 +729,10 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
         ctx.fillRect(bx, by, 21 * s, 16 * s);
         if (k < filled) { ctx.fillStyle = '#c2b698'; ctx.fillRect(bx + 4 * s, by - 3 * s, 12 * s, 5 * s); }
       }
-      icon('🗑️', px + 78 * s, py + 13 * s, 14 * s);
+      if (detail) { // 불도저
+        rect('#3c3a36', 69, 15, 15, 3); rect('#e5b52a', 70, 8, 12, 7); rect('#c9961a', 72, 3.5, 6, 5);
+        rect('#9fc3d6', 73, 4.5, 4, 2.5); rect('#8a8f94', 83.5, 6.5, 2.5, 11);
+      }
       break;
     }
     case 'incinerator':
@@ -569,8 +740,9 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
       ctx.fillStyle = '#667174'; ctx.fillRect(px + 45 * s, py + 2 * s, 9 * s, 30 * s);
       ctx.fillStyle = '#a95e4d'; ctx.fillRect(px + 45 * s, py + 2 * s, 9 * s, 5 * s);
       ctx.fillStyle = '#384b47'; ctx.fillRect(px + 12 * s, py + 40 * s, 13 * s, 17 * s);
+      if (t.powered) { rect(blink ? '#ff8a3d' : '#ffb35c', 14, 47, 9, 8); rect('#ffd27a', 16, 50, 5, 4); }
       ctx.fillStyle = '#d4ae63'; ctx.fillRect(px + 8 * s, py + 30 * s, 37 * s, 3 * s);
-      icon('♨', px + 31 * s, py + 28 * s, 12 * s);
+      if (detail) for (const vx of [16, 26, 36]) { dot('#6f6256', vx, 20, 2.6); dot('#4c443d', vx, 20, 1.4); }
       break;
     case 'recycling':
       box(ctx, px + 5 * s, py + 17 * s, 52 * s, 39 * s, 14 * s, '#75a286', '#47775d', '#c0d8ba');
@@ -579,7 +751,15 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
         ctx.fillRect(px + (9 + k * 17) * s, py + 44 * s, 12 * s, 14 * s);
         ctx.fillStyle = '#d0d3b8'; ctx.fillRect(px + (8 + k * 17) * s, py + 43 * s, 14 * s, 3 * s);
       }
-      icon('♻️', px + 31 * s, py + 17 * s, 18 * s);
+      if (detail) {
+        ctx.strokeStyle = '#2f6b45'; ctx.lineWidth = 2 * s; ctx.lineJoin = 'round';
+        ctx.beginPath(); ctx.moveTo(px + 31 * s, py + 11 * s); ctx.lineTo(px + 39 * s, py + 25 * s); ctx.lineTo(px + 23 * s, py + 25 * s); ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = '#2f6b45';
+        for (const [ax, ay, dx, dy] of [[35, 18, 1, 1.7], [31, 25, -1.9, 0], [27, 18, 1, -1.7]]) {
+          ctx.beginPath(); ctx.moveTo(px + (ax + dx * 1.6) * s, py + (ay + dy * 1.6) * s);
+          ctx.lineTo(px + (ax - dy * 1.4) * s, py + (ay + dx * 1.4) * s); ctx.lineTo(px + (ax + dy * 1.4) * s, py + (ay - dx * 1.4) * s); ctx.closePath(); ctx.fill();
+        }
+      }
       break;
     case 'busstop':
       ctx.fillStyle = '#d4cbb5';
@@ -595,7 +775,7 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
       ctx.fillRect(px + 8 * s, py + 23 * s, 13 * s, 3 * s);
       ctx.fillStyle = '#d2b85d';
       ctx.fillRect(px + 27 * s, py + 11 * s, 2 * s, 17 * s);
-      icon('🚏', px + 28 * s, py + 7 * s, 11 * s);
+      dot('#2f6fc9', 28, 8, 3.4); rect('#f4f6f8', 26.2, 7.2, 3.6, 1.6);
       break;
     case 'subway':
       ctx.fillStyle = '#c2c5bf';
@@ -652,17 +832,40 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
       break;
     }
     case 'pump': {
+      rect('#3f6f92', 1, 22, 6, 3.2); rect('#3f6f92', 25, 22, 6, 3.2);
       box(ctx, px + 5 * s, py + 9 * s, 22 * s, 18 * s, 9 * s, '#6ea7cf', '#4f86ad');
-      icon('💧', px + 16 * s, py + 9 * s, 12 * s);
+      if (detail) {
+        ctx.strokeStyle = '#e3eef6'; ctx.lineWidth = 1.4 * s;
+        ctx.beginPath(); ctx.arc(px + 16 * s, py + 9 * s, 4.2 * s, 0, 7); ctx.stroke();
+        rect('#e3eef6', 15.3, 5, 1.4, 8); rect('#e3eef6', 12, 8.3, 8, 1.4);
+        rect('#2e5d80', 14, 20, 4, 7);
+      }
       break;
     }
     case 'police':
-      box(ctx, px + 3 * s, py + 6 * s, 26 * s, 22 * s, 12 * s, '#3f63b0', '#2f4d8c', '#bcd3ff');
-      icon('🚓', px + 16 * s, py, 13 * s);
+      rect('#8f979c', 2, 4, 28, 26);
+      box(ctx, px + 3 * s, py + 6 * s, 19 * s, 18 * s, 12 * s, '#dfe6ee', '#3f63b0', '#bcd3ff');
+      rect('#2b4a8a', 3, 12, 19, 1.6);
+      if (detail) {
+        rect('#1d2a3a', 10.5, 19, 4, 5);
+        rect(blink ? '#ff4d4d' : '#7a2b2b', 9, 0, 3.5, 2.2); rect(blink ? '#2b3f7a' : '#4d8bff', 12.5, 0, 3.5, 2.2);
+        // 순찰차
+        rect('#f4f6f8', 23.5, 14, 5.5, 11); rect('#1d2a3a', 23.5, 14, 5.5, 2.6); rect('#1d2a3a', 23.5, 21.5, 5.5, 1.6);
+        rect(blink ? '#ff4d4d' : '#4d8bff', 24, 18, 4.5, 1.3);
+      }
       break;
     case 'fire':
-      box(ctx, px + 3 * s, py + 6 * s, 26 * s, 22 * s, 12 * s, '#c84436', '#9d3226', '#ffd2c2');
-      icon('🚒', px + 16 * s, py, 13 * s);
+      rect('#9aa0a3', 2, 24, 22, 6);
+      box(ctx, px + 2 * s, py + 7 * s, 21 * s, 21 * s, 12 * s, '#d9d4cc', '#c84436');
+      if (detail) {
+        for (const dx of [4, 13]) {
+          rect('#ece5d8', dx, 19, 7.5, 9);
+          for (let k = 1; k < 4; k++) rect('#bdb4a6', dx, 19 + k * 2.2, 7.5, 0.7);
+        }
+        rect(blink ? '#ffcc33' : '#ff6b3d', 10, 0.5, 4, 2);
+      }
+      box(ctx, px + 24 * s, py + 12 * s, 6 * s, 6 * s, 22 * s, '#d9d4cc', '#a8352a');
+      if (detail) rect('#ffd2c2', 25.5, -7, 3, 3);
       break;
     case 'school':
       ctx.fillStyle = '#c46c3f';
@@ -670,7 +873,12 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
       ctx.fillStyle = '#6dab5a';
       ctx.beginPath(); ctx.ellipse(px + 44 * s, py + 40 * s, 10 * s, 13 * s, 0, 0, 7); ctx.fill();
       box(ctx, px + 4 * s, py + 20 * s, 26 * s, 36 * s, 16 * s, '#d98c4a', '#b06c33', '#fff0c8');
-      icon('🏫', px + 17 * s, py + 22 * s, 14 * s);
+      if (detail) {
+        // 지붕 가운데 시계탑 꼭대기
+        rect('#b06c33', 11.5, 7.5, 11, 11); rect('#eab27a', 12.5, 8.5, 9, 9); rect('#c97b3f', 12.5, 12.5, 9, 1);
+        dot('#f7f1e3', 17, 13, 3.2); rect('#3d2f24', 16.6, 10.6, 0.9, 2.8); rect('#3d2f24', 16.6, 12.6, 2.6, 0.9);
+        rect('#cfd3d6', 33, 4, 1.1, 20); rect('#e6553a', 34.1, 4, 7, 4.5); rect('#f4f1e8', 34.1, 5.6, 7, 1.2);
+      }
       break;
     case 'hospital':
       box(ctx, px + 6 * s, py + 14 * s, 52 * s, 44 * s, 24 * s, '#f1f3f5', '#cfd5da', '#9fc6e8');
@@ -717,7 +925,9 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
       box(ctx, px + 65 * s, py + 13 * s, 23 * s, 64 * s, 19 * s, '#d7c7aa', '#b69d7e', '#d3e1d7');
       box(ctx, px + 31 * s, py + 13 * s, 34 * s, 24 * s, 27 * s, '#a3af99', '#7d8c72', '#e5dbb4');
       ctx.fillStyle = '#c8c6a6'; ctx.fillRect(px + 43 * s, py + 37 * s, 10 * s, 52 * s);
-      icon('🎓', px + 48 * s, py + 3 * s, 17 * s);
+      ctx.fillStyle = '#6f9a86'; ctx.beginPath(); ctx.arc(px + 48 * s, py - 4 * s, 9 * s, Math.PI, 0); ctx.fill();
+      rect('#8fb3a0', 39, -4, 18, 2);
+      rect('#d9d2b6', 47.3, -19, 1.4, 7); dot('#e8c95a', 48, -19.5, 1.4);
       break;
     case 'research':
       box(ctx, px + 5 * s, py + 13 * s, 34 * s, 43 * s, 24 * s, '#b9d2ca', '#719c91', t.powered ? '#d2ede0' : '#425e56');
@@ -741,7 +951,16 @@ function drawFacility(ctx, x, y, px, py, ts, z, t) {
         ctx.fillStyle = '#3f685c'; ctx.fillRect(px + 12 * s, py + (8 + row * 16) * s, 39 * s, 9 * s);
         ctx.fillStyle = '#8dbb9f'; ctx.fillRect(px + 12 * s, py + (8 + row * 16) * s, 39 * s, 2 * s);
       }
-      icon('⚙️', px + 75 * s, py + 38 * s, 17 * s);
+      if (detail) {
+        const gx = px + 75 * s, gy = py + 32 * s;
+        ctx.fillStyle = '#4f6f5c'; ctx.beginPath();
+        for (let k = 0; k < 16; k++) {
+          const a = k / 16 * Math.PI * 2, rr = (k % 2 ? 5 : 7) * s;
+          ctx[k ? 'lineTo' : 'moveTo'](gx + Math.cos(a) * rr, gy + Math.sin(a) * rr);
+        }
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#a8c2ae'; ctx.beginPath(); ctx.arc(gx, gy, 2.2 * s, 0, 7); ctx.fill();
+      }
       break;
   }
 }
@@ -1257,34 +1476,81 @@ function drawOverlay(ctx, x, y, ts) {
   if (col) { ctx.fillStyle = col; ctx.fillRect(px, py, ts, ts); }
 }
 
-function drawStatus(ctx, x, y, ts) {
+// 칸의 문제 표시 종류 (도로 없음이 가장 우선). 그리기와 따로 두어 테스트하기 쉽게 한다.
+function statusBadges(x, y) {
   const i = idx(x, y);
   const t = S.tiles[i];
-  if (!t.type || t.type === 'road' || t.type === 'rubble' || t.type === 'levee') return;
-  if (t.root >= 0 && t.root !== i) return;
-  const d = DEFS[t.type];
+  if (!t.type || t.type === 'road' || t.type === 'rubble' || t.type === 'levee') return [];
+  if (t.root >= 0 && t.root !== i) return [];
   const badges = [];
-  if (!t.road) badges.push({ icon:'🚧', color:'#e5c37b', background:'rgba(45,37,22,0.9)' });
+  if (!t.road) badges.push('road');
   else {
-    if (powerUseOf(t, i) > 0 && !t.powered) badges.push({ icon:'⚡', color:'#ffda70', background:'rgba(54,42,17,0.9)' });
-    if (waterUseOf(t, i) > 0 && !t.watered) badges.push({ icon:'💧', color:'#79c9ff', background:'rgba(18,42,60,0.9)' });
+    if (powerUseOf(t, i) > 0 && !t.powered) badges.push('power');
+    if (waterUseOf(t, i) > 0 && !t.watered) badges.push('water');
   }
-  if (t.garbage >= 40) badges.push({ icon:'🗑️', color:'#d5bd7c', background:'rgba(48,40,23,0.9)' });
+  if (t.garbage >= 40) badges.push('garbage');
+  return badges;
+}
+
+const STATUS_STYLE = {
+  road: { color: '#f0c45a', background: 'rgba(45,37,22,0.92)' },
+  power: { color: '#ffd84d', background: 'rgba(54,42,17,0.92)' },
+  water: { color: '#7cc8ff', background: 'rgba(18,42,60,0.92)' },
+  garbage: { color: '#d8c08a', background: 'rgba(48,40,23,0.92)' },
+};
+
+// 작은 기호를 (0,0) 중심, 반지름 r 안에 그린다.
+function drawStatusGlyph(ctx, kind, r) {
+  ctx.fillStyle = STATUS_STYLE[kind].color;
+  ctx.beginPath();
+  if (kind === 'power') {
+    const pts = [[0.18, -0.72], [-0.42, 0.1], [-0.04, 0.1], [-0.2, 0.72], [0.44, -0.16], [0.05, -0.16]];
+    pts.forEach(([px, py], k) => ctx[k ? 'lineTo' : 'moveTo'](px * r, py * r));
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'water') {
+    ctx.moveTo(0, -0.66 * r);
+    ctx.bezierCurveTo(0.58 * r, 0, 0.52 * r, 0.62 * r, 0, 0.62 * r);
+    ctx.bezierCurveTo(-0.52 * r, 0.62 * r, -0.58 * r, 0, 0, -0.66 * r);
+    ctx.closePath(); ctx.fill();
+  } else if (kind === 'road') {
+    // 공사 차단봉: 노란 판에 사선 줄무늬, 다리 둘
+    ctx.fillRect(-0.62 * r, -0.36 * r, 1.24 * r, 0.5 * r);
+    ctx.fillRect(-0.48 * r, 0.14 * r, 0.16 * r, 0.5 * r);
+    ctx.fillRect(0.32 * r, 0.14 * r, 0.16 * r, 0.5 * r);
+    ctx.fillStyle = 'rgba(45,37,22,0.95)';
+    for (const ox of [-0.36, 0.06]) {
+      ctx.beginPath(); ctx.moveTo((ox) * r, -0.36 * r); ctx.lineTo((ox + 0.2) * r, -0.36 * r);
+      ctx.lineTo((ox + 0.02) * r, 0.14 * r); ctx.lineTo((ox - 0.18) * r, 0.14 * r); ctx.closePath(); ctx.fill();
+    }
+  } else {
+    // 쓰레기통: 뚜껑과 몸통
+    ctx.fillRect(-0.5 * r, -0.5 * r, r, 0.18 * r);
+    ctx.fillRect(-0.14 * r, -0.66 * r, 0.28 * r, 0.16 * r);
+    ctx.moveTo(-0.42 * r, -0.26 * r); ctx.lineTo(0.42 * r, -0.26 * r);
+    ctx.lineTo(0.32 * r, 0.62 * r); ctx.lineTo(-0.32 * r, 0.62 * r); ctx.closePath(); ctx.fill();
+  }
+}
+
+// 문제 표시는 건물을 가리지 않게 작게, 칸(부지) 오른쪽 위 모서리부터 왼쪽으로 놓고 은은하게 깜빡인다.
+function drawStatus(ctx, x, y, ts) {
+  const badges = statusBadges(x, y);
   if (!badges.length) return;
-  const cx = x * ts + ts * (d.size || 1) / 2, cy = y * ts + ts * 0.15;
-  const radius = Math.min(ts * (badges.length > 1 ? 0.2 : 0.22),
-    (ts * (d.size || 1) * 0.94 - ts * 0.04 * (badges.length - 1)) / (2 * badges.length));
-  const spacing = radius * 2 + ts * 0.04;
+  const d = DEFS[S.tiles[idx(x, y)].type];
+  const size = d.size || 1;
+  const radius = Math.max(3.5, Math.min(ts * 0.16, (ts * size * 0.9) / (2 * badges.length + 0.4)));
+  const gap = Math.max(1, ts * 0.03);
+  const right = (x + size) * ts - gap, top = y * ts + gap;
+  const pulse = 0.78 + 0.22 * Math.sin(R.time * 4 + x + y);
   ctx.save();
-  ctx.lineWidth = Math.max(1, ts * 0.035);
-  ctx.font = `${Math.min(ts * 0.28, radius * 1.7)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  badges.forEach((badge, k) => {
-    const bx = cx + (k - (badges.length - 1) / 2) * spacing;
-    ctx.fillStyle = badge.background; ctx.strokeStyle = badge.color;
-    ctx.beginPath(); ctx.arc(bx, cy, radius, 0, 7); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = badge.color;
-    ctx.fillText(badge.icon, bx, cy + 1);
+  ctx.lineWidth = Math.max(1, radius * 0.18);
+  badges.forEach((kind, k) => {
+    const bx = right - radius - (badges.length - 1 - k) * (radius * 2 + gap), by = top + radius; // 왼쪽부터 순서대로
+    const style = STATUS_STYLE[kind];
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = style.background; ctx.strokeStyle = style.color;
+    ctx.beginPath(); ctx.arc(bx, by, radius, 0, 7); ctx.fill(); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(bx, by); drawStatusGlyph(ctx, kind, radius); ctx.restore();
   });
   ctx.restore();
 }

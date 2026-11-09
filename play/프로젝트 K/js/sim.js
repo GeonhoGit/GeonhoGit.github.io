@@ -27,6 +27,7 @@ function newGame(opts) {
     finance: typeof FINANCE !== 'undefined' ? FINANCE.normalize() : undefined,
     waste: typeof WASTE !== 'undefined' ? WASTE.normalize() : undefined,
     news: typeof NEWS !== 'undefined' ? NEWS.normalize() : undefined,
+    achievements: typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS.normalize() : undefined,
     disasterMode: ['off', 'rare', 'frequent'].includes(opts.disasterMode) ? opts.disasterMode : 'rare',
     disasters: typeof DISASTER !== 'undefined' ? DISASTER.normalize() : undefined,
     civic: typeof CIVIC !== 'undefined' ? CIVIC.normalize() : undefined,
@@ -39,7 +40,6 @@ function newGame(opts) {
     DEVELOPMENT.initScenario(opts.scenario);
     recomputeAll();
   }
-  if (typeof UNDO !== 'undefined') UNDO.clear();
 }
 
 // 확장 효과는 원본 정의를 변경하지 않고 계산마다 합산한다.
@@ -268,7 +268,6 @@ function runNetwork(capKey, useFn, flag) {
   const seen = new Uint8Array(N);
   let totalCap = 0, totalUse = 0, idleCap = 0;
   let totalDemand = 0, shortfall = 0, cutDemand = 0;
-  const inGrid = new Uint8Array(N);   // 공급원과 이어진 망에 속한 칸
   const shortRoots = [];              // 망에는 있지만 용량이 모자라 끊긴 건물
   const idleSources = [];             // 쓰는 곳이 하나도 없는(고립된) 공급 시설
   for (let i = 0; i < N; i++) tiles[i][flag] = false;
@@ -276,16 +275,16 @@ function runNetwork(capKey, useFn, flag) {
     const st = tiles[s];
     if (seen[s] || !conducts(st) || !DEFS[st.type] || !DEFS[st.type][capKey]) continue;
     // 연결된 구성요소 BFS
-    const order = [];
     const q = [s]; seen[s] = 1;
     let cap = 0, qh = 0;
     const roots = new Set();
     while (qh < q.length) {
       const i = q[qh++];
-      order.push(i);
       const t = tiles[i];
-      const d = facilityDefinition(t, i);
-      if (d && d[capKey] && !roots.has(rootOf(i))) { roots.add(rootOf(i)); cap += d[capKey]; }
+      if (DEFS[t.type]?.[capKey]) {
+        const root = rootOf(i);
+        if (!roots.has(root)) { roots.add(root); cap += facilityDefinition(t, i)[capKey]; }
+      }
       const x = i % MAP_W, y = (i / MAP_W) | 0;
       for (const [dx, dy] of DIR4) {
         const nx = x + dx, ny = y + dy;
@@ -299,8 +298,7 @@ function runNetwork(capKey, useFn, flag) {
     let remain = cap, consumers = 0, gridDemand = 0;
     // 루트 기준으로 다칸 건물 전체에 동일 상태 부여
     const rootState = new Map();
-    for (const i of order) {
-      inGrid[i] = 1;
+    for (const i of q) {
       const t = tiles[i];
       const r = rootOf(i);
       if (t.root >= 0 && r !== i) continue;
@@ -317,7 +315,7 @@ function runNetwork(capKey, useFn, flag) {
     totalDemand += gridDemand;
     shortfall += Math.max(0, gridDemand - cap);
     if (consumers === 0) { idleCap += cap; for (const r of roots) idleSources.push(r); }
-    for (const i of order) {
+    for (const i of q) {
       const t = tiles[i];
       if (t.root >= 0 && t.root !== i) t[flag] = rootState.has(t.root) ? rootState.get(t.root) : true;
     }
@@ -326,7 +324,7 @@ function runNetwork(capKey, useFn, flag) {
   const cutRoots = [];
   for (let i = 0; i < N; i++) {
     const t = tiles[i];
-    if (inGrid[i] || !t.type || !t.road || (t.root >= 0 && t.root !== i)) continue;
+    if (seen[i] || !t.type || !t.road || (t.root >= 0 && t.root !== i)) continue;
     if (DEFS[t.type] && DEFS[t.type][capKey]) continue;
     const use = useFn(t, i);
     if (use > 0) { cutRoots.push(i); cutDemand += use; }
@@ -393,6 +391,27 @@ function recomputeNetworks() {
 }
 
 // ---------- 공공 서비스 범위 ----------
+// 반경과 중심 위치가 같으면 거리별 가중치도 같다. 시설별 배율과 오염량은 적용 때마다 계산한다.
+const influenceKernels = new Map();
+function influenceRows(radius, sampleOffset, service) {
+  const key = `${radius}:${sampleOffset}:${service}`;
+  if (influenceKernels.has(key)) return influenceKernels.get(key);
+  const rows = [], reach = Math.ceil(radius + sampleOffset);
+  for (let dy = -reach; dy <= reach; dy++) {
+    let firstX = 0;
+    const weights = [];
+    for (let dx = -reach; dx <= reach; dx++) {
+      const distance = Math.hypot(dx + sampleOffset, dy + sampleOffset);
+      if (distance > radius) continue;
+      if (!weights.length) firstX = dx;
+      weights.push(service ? 1 - Math.pow(distance / radius, 2) * .7 : 1 - distance / (radius + 1));
+    }
+    if (weights.length) rows.push({ dy, firstX, weights });
+  }
+  influenceKernels.set(key, rows);
+  return rows;
+}
+
 function recomputeCoverage() {
   const effects = simulationModifiers();
   for (const k of SERVICE_KEYS) S.cov[k].fill(0);
@@ -405,15 +424,16 @@ function recomputeCoverage() {
     if (!SERVICE_KEYS.includes(service)) continue;
     if (d.serviceKey && !isFacilityOperating(t, i)) continue;
     if (t.type !== 'park' && !t.powered) continue; // 전기 없으면 운영 불가
-    const cx = i % MAP_W + d.size / 2, cy = ((i / MAP_W) | 0) + d.size / 2;
-    const r = d.radius;
+    const center = Math.floor(d.size / 2), cx = i % MAP_W + center, cy = ((i / MAP_W) | 0) + center;
+    const rows = influenceRows(d.radius, d.size % 2 === 0 ? .5 : 0, true);
     const cov = S.cov[service];
-    for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(MAP_H - 1, Math.ceil(cy + r)); y++) {
-      for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(MAP_W - 1, Math.ceil(cx + r)); x++) {
-        const dd = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-        if (dd > r) continue;
-        const v = Math.min(1, (1 - Math.pow(dd / r, 2) * 0.7) * (effects[service] || 1));
-        const j = idx(x, y);
+    const factor = effects[service] || 1;
+    for (const { dy, firstX, weights } of rows) {
+      const y = cy + dy;
+      if (y < 0 || y >= MAP_H) continue;
+      const left = cx + firstX, end = Math.min(weights.length, MAP_W - left), offset = y * MAP_W + left;
+      for (let k = Math.max(0, -left); k < end; k++) {
+        const v = Math.min(1, weights[k] * factor), j = offset + k;
         if (v > cov[j]) cov[j] = v;
       }
     }
@@ -439,12 +459,12 @@ function recomputeMaps() {
   }
   const emit = (i, amount, r) => {
     const cx = i % MAP_W, cy = (i / MAP_W) | 0;
-    for (let y = Math.max(0, cy - r); y <= Math.min(MAP_H - 1, cy + r); y++)
-      for (let x = Math.max(0, cx - r); x <= Math.min(MAP_W - 1, cx + r); x++) {
-        const dd = Math.hypot(x - cx, y - cy);
-        if (dd > r) continue;
-        poll[idx(x, y)] += amount * (1 - dd / (r + 1));
-      }
+    for (const { dy, firstX, weights } of influenceRows(r, 0, false)) {
+      const y = cy + dy;
+      if (y < 0 || y >= MAP_H) continue;
+      const left = cx + firstX, end = Math.min(weights.length, MAP_W - left), offset = y * MAP_W + left;
+      for (let k = Math.max(0, -left); k < end; k++) poll[offset + k] += amount * weights[k];
+    }
   };
   for (let i = 0; i < N; i++) {
     const t = tiles[i];
@@ -672,6 +692,18 @@ function adminCost(pop) {
   return Math.round((pop - 300) * 0.09 + Math.pow(pop / 1000, 1.5) * 75);
 }
 
+// 난이도별 배율 (없는 난이도는 보통 기준)
+function difficultyRule(key) {
+  const d = (S && DIFFICULTY[S.difficulty]) || DIFFICULTY.normal;
+  return Number.isFinite(d[key]) ? d[key] : 1;
+}
+function difficultyReward(amount) { return Math.round(amount * difficultyRule('reward')); }
+function applyDifficultyUpkeep(exp) {
+  const mul = difficultyRule('upkeep');
+  if (mul !== 1) for (const k in exp) exp[k] = Math.round(exp[k] * mul * 10) / 10;
+  return exp;
+}
+
 function operatingCostScale(pop) {
   const r = typeof OPERATING_COSTS !== 'undefined' ? OPERATING_COSTS : null;
   if (!r) return 0;
@@ -744,6 +776,7 @@ function monthTick() {
   exp.admin = adminCost(st.pop);
   const ops = operatingCosts();
   exp.fuel = ops.fuel; exp.waterOps = ops.water; exp.wasteOps = ops.waste; exp.services = ops.services;
+  applyDifficultyUpkeep(exp);
   if (typeof CIVIC !== 'undefined') exp.civic = CIVIC.monthSettlementCost ? CIVIC.monthSettlementCost() : CIVIC.monthlyCost();
   const baseIncome = incRes + incCom + incInd + incFacilities;
   // 이벤트 수입 효과는 실제 적용된 날짜만 반영하며 만료된 부분 월도 정산한다.
@@ -809,11 +842,13 @@ function monthTick() {
   // 마일스톤
   while (S.milestone < MILESTONES.length && st.pop >= MILESTONES[S.milestone].pop) {
     const m = MILESTONES[S.milestone];
-    S.money += m.reward;
+    const reward = difficultyReward(m.reward);
+    S.money += reward;
     if (typeof SOUND !== 'undefined') SOUND.play('reward');
-    if (typeof NEWS === 'undefined') notify(`🎉 '${m.title}' 달성! 인구 ${m.pop.toLocaleString()}명 · 보상 ₩${m.reward.toLocaleString()}`, 'good');
+    if (typeof NEWS === 'undefined') notify(`🎉 '${m.title}' 달성! 인구 ${m.pop.toLocaleString()}명 · 보상 ₩${reward.toLocaleString()}`, 'good');
     S.milestone++;
   }
+  if (typeof ACHIEVEMENTS !== 'undefined') ACHIEVEMENTS.onMonth();
   // 해금 알림
   for (const k in DEFS) {
     const d = DEFS[k];
@@ -857,6 +892,7 @@ function serializeCity() {
       loans: S.loans || [], finance: S.finance,
       waste: typeof WASTE !== 'undefined' ? WASTE.normalize(S.waste) : undefined,
       news: typeof NEWS !== 'undefined' ? NEWS.normalize(S.news) : undefined,
+      achievements: typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS.normalize(S.achievements) : undefined,
       disasterMode: S.disasterMode || 'rare',
       disasters: typeof DISASTER !== 'undefined' ? DISASTER.normalize(S.disasters) : undefined,
       civic: S.civic, development: S.development,
@@ -872,7 +908,7 @@ function saveGame(auto) {
   }
   try {
     const data = serializeCity();
-    parseCity(data);
+    validateCityRecord(data);
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     notify(auto ? '💾 자동 저장됨' : '💾 저장 완료', 'info');
     return true;
@@ -887,7 +923,7 @@ function hasSave() {
 }
 
 // 슬롯 조회와 가져오기는 현재 도시를 건드리지 않는 동일한 검사기를 사용한다.
-function parseCity(input) {
+function validateCityRecord(input) {
     const d = typeof input === 'string' ? JSON.parse(input) : input;
     const integerInRange = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
     if (!d || typeof d !== 'object' || Array.isArray(d) || d.version !== 1 || typeof d.name !== 'string' || !Object.hasOwn(DIFFICULTY, d.difficulty)
@@ -943,21 +979,14 @@ function parseCity(input) {
       finance: typeof FINANCE !== 'undefined' ? FINANCE.normalize(d.finance) : undefined,
       waste: typeof WASTE !== 'undefined' ? WASTE.normalize(d.waste) : undefined,
       news: typeof NEWS !== 'undefined' ? NEWS.normalize(d.news) : undefined,
+      achievements: typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS.normalize(d.achievements) : undefined,
       disasterMode: d.disasterMode === undefined ? 'rare' : d.disasterMode,
       disasters: typeof DISASTER !== 'undefined' ? DISASTER.normalize(d.disasters) : undefined,
       civic: typeof CIVIC !== 'undefined' ? CIVIC.normalize(d.civic) : undefined,
       development: typeof DEVELOPMENT !== 'undefined' ? DEVELOPMENT.normalize(d.development) : undefined,
       traffic: typeof TRAFFIC !== 'undefined' ? TRAFFIC.normalize(d.traffic) : undefined,
       transit: typeof TRANSIT !== 'undefined' ? TRANSIT.normalize(d.transit) : undefined,
-      tiles: d.tiles.map(a => {
-        const t = newTile(a[0]);
-        t.tree = !!a[1]; t.type = a[2] || null; t.root = a[3]; t.level = a[4]; t.fire = a[5] || 0;
-        t.upgrade = a[6] || 0;
-        t.lanes = a[7] === undefined ? 1 : a[7];
-        t.garbage = a[8] === undefined ? 0 : a[8];
-        t.landfillStored = a[9] === undefined ? 0 : a[9];
-        return t;
-      }),
+      tiles: d.tiles,
     };
     if (typeof FINANCE !== 'undefined') {
       const month = candidate.year * 12 + candidate.month - 1;
@@ -980,6 +1009,12 @@ function parseCity(input) {
         throw new Error('저장된 뉴스 날짜가 도시 날짜보다 늦습니다.');
       }
     }
+    if (typeof ACHIEVEMENTS !== 'undefined') {
+      const month = candidate.year * 12 + candidate.month - 1, state = candidate.achievements;
+      if (Object.values(state.unlocked).some(value => value > month) || (state.recover && state.recover.at > month)) {
+        throw new Error('저장된 업적 날짜가 도시 날짜보다 늦습니다.');
+      }
+    }
     if (typeof DISASTER !== 'undefined') {
       const month = candidate.year * 12 + candidate.month - 1, state = candidate.disasters;
       const eventMonth = state.lastEvent ? state.lastEvent.year * 12 + state.lastEvent.month - 1 : null;
@@ -991,12 +1026,26 @@ function parseCity(input) {
     return candidate;
 }
 
+function parseCity(input) {
+  const city = validateCityRecord(input);
+  // 저장 검사와 실제 로드가 같은 검사를 거친다. 게임용 타일은 로드할 때만 만든다.
+  city.tiles = city.tiles.map(a => {
+    const t = newTile(a[0]);
+    t.tree = !!a[1]; t.type = a[2] || null; t.root = a[3]; t.level = a[4]; t.fire = a[5] || 0;
+    t.upgrade = a[6] || 0;
+    t.lanes = a[7] === undefined ? 1 : a[7];
+    t.garbage = a[8] === undefined ? 0 : a[8];
+    t.landfillStored = a[9] === undefined ? 0 : a[9];
+    return t;
+  });
+  return city;
+}
+
 function loadCity(input) {
   const previous = S;
   try {
     S = parseCity(input); // 파생 데이터 계산은 동기식이며 실패하면 기존 도시를 복원
     initDerived();
-    if (typeof UNDO !== 'undefined') UNDO.clear();
     return true;
   } catch (e) {
     S = previous;

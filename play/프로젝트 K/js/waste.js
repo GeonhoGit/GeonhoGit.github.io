@@ -67,24 +67,21 @@ const WASTE = {
     return best;
   },
 
-  _plan() {
-    const network = TRAFFIC.topology(), facilities = [], sources = [], groups = new Map();
+  _layout() {
+    const network = TRAFFIC.topology(), facilities = [], sources = [];
     const landfillMap = new Uint8Array(S.tiles.length);
     for (let i = 0; i < S.tiles.length; i++) {
       const t = S.tiles[i];
       if (!['recycling', 'incinerator', 'landfill'].includes(t.type) || t.root !== i) continue;
       const d = facilityDefinition(t, i), entry = TRAFFIC.entry(i, d.size, network);
-      const capacity = d.wasteCapacity || d.wasteProcess, stored = t.type === 'landfill' ? t.landfillStored || 0 : 0;
-      const remaining = Math.max(0, capacity - stored);
+      const capacity = d.wasteCapacity || d.wasteProcess;
       let reason = '';
       if (t.fire > 0) reason = '화재로 운영 중단';
       else if (t.flooded || t.disasterDisabled) reason = '재난으로 운영 중단';
       else if (!t.road || entry < 0) reason = '도로 연결 필요';
       else if (d.powerUse > 0 && !t.powered) reason = '전력 공급 필요';
       else if (!isFacilityOperating(t, i)) reason = '기반 시설 연결 필요';
-      else if (!remaining) reason = '매립 용량 가득 참';
-      facilities.push({ i, type: t.type, operating: !reason, reason, capacity, stored, remaining,
-        component: entry >= 0 ? network.component[entry] : -1, processed: 0 });
+      facilities.push({ i, type: t.type, reason, capacity, component: entry >= 0 ? network.component[entry] : -1 });
       if (t.type === 'landfill') {
         const cx = i % MAP_W + d.size / 2, cy = Math.floor(i / MAP_W) + d.size / 2;
         for (let y = Math.max(0, Math.floor(cy - 4)); y <= Math.min(MAP_H - 1, Math.ceil(cy + 4)); y++) {
@@ -94,9 +91,6 @@ const WASTE = {
         }
       }
     }
-    const reduction = Math.min(.3, facilities.filter(f => f.type === 'recycling' && f.operating).length * .15);
-    const served = new Set(facilities.filter(f => f.operating).map(f => f.component));
-    let generated = 0, backlog = 0, unservedResidential = 0;
     for (let i = 0; i < S.tiles.length; i++) {
       const t = S.tiles[i];
       let amount = 0, size = 1;
@@ -106,11 +100,28 @@ const WASTE = {
       else if (t.type && t.type !== 'rubble' && t.type !== 'road' && DEFS[t.type]?.cat !== 'infra' && t.root === i) {
         size = facilityDefinition(t, i).size; amount = size * 3;
       }
-      amount *= 1 - reduction;
+      if (!amount && !t.garbage && t.type !== 'res') continue;
+      const entry = this.sourceEntry(i, size, network);
+      sources.push({ i, amount, component: entry >= 0 ? network.component[entry] : -1 });
+    }
+    return { facilities, sources, landfillMap };
+  },
+
+  _plan(layout = this._layout()) {
+    const facilities = layout.facilities.map(({ i, type, reason, capacity, component }) => {
+      const stored = type === 'landfill' ? S.tiles[i].landfillStored || 0 : 0;
+      const remaining = Math.max(0, capacity - stored);
+      if (!reason && !remaining) reason = '매립 용량 가득 참';
+      return { i, type, operating: !reason, reason, capacity, stored, remaining, component, processed: 0 };
+    });
+    const reduction = Math.min(.3, facilities.filter(f => f.type === 'recycling' && f.operating).length * .15);
+    const served = new Set(facilities.filter(f => f.operating).map(f => f.component));
+    const sources = [], groups = new Map();
+    let generated = 0, backlog = 0, unservedResidential = 0;
+    for (const site of layout.sources) {
+      const { i, component } = site, amount = site.amount * (1 - reduction), t = S.tiles[i];
       const accumulated = t.garbage || 0;
-      if (!amount && !accumulated && t.type !== 'res') continue;
-      const entry = this.sourceEntry(i, size, network), component = entry >= 0 ? network.component[entry] : -1;
-      // Empty residential zones keep this placement-derived guide check valid while buildings grow.
+      // 빈 주거 구역의 수거 연결도 가이드에 반영한다.
       if (t.type === 'res' && !served.has(component)) unservedResidential++;
       if (!amount && !accumulated) continue;
       const source = { i, generated: amount, backlog: accumulated, total: amount + accumulated, component };
@@ -138,13 +149,13 @@ const WASTE = {
       report.currentProcessed += group.currentProcessed; report.backlogProcessed += group.backlogProcessed;
     }
     report.currentRate = generated ? Math.min(1, report.currentProcessed / generated) : 1;
-    return { ...report, backlog, reduction, unservedResidential, facilities, sources, groups, landfillMap,
+    return { ...report, backlog, reduction, unservedResidential, facilities, sources, groups, landfillMap: layout.landfillMap,
       landfillRemaining: facilities.filter(f => f.type === 'landfill').reduce((sum, f) => sum + f.remaining, 0) };
   },
 
-  refresh() {
+  refresh(layout) {
     if (!S) return null;
-    const state = this.normalize(S.waste), plan = this._plan();
+    const state = this.normalize(S.waste), plan = this._plan(layout);
     this._landfillMap = plan.landfillMap;
     for (const t of S.tiles) { t.wasteOperating = false; t.wasteProcessed = t.wasteCapacity = 0; t.wasteReason = ''; }
     for (const f of plan.facilities) {
@@ -160,7 +171,8 @@ const WASTE = {
     const state = this.normalize(S.waste), month = S.year * 12 + S.month - 1;
     if (!Number.isSafeInteger(month) || month < 0) throw new Error('쓰레기 처리 날짜가 올바르지 않습니다.');
     if (state.lastMonth !== null && state.lastMonth >= month) return state.last;
-    const plan = this._plan();
+    // 정산 직전·직후의 배치는 같다. 매립 잔여량과 각 칸의 밀림은 두 계획에서 따로 읽는다.
+    const layout = this._layout(), plan = this._plan(layout);
     for (const source of plan.sources) {
       const group = plan.groups.get(source.component);
       const currentFraction = group?.generated ? Math.min(1, group.currentProcessed / group.generated) : 0;
@@ -184,7 +196,7 @@ const WASTE = {
     const filling = plan.facilities.find(f => f.type === 'landfill' && S.tiles[f.i].landfillStored >= f.capacity * .7);
     warn('landfill70', !full && !!filling, '🗑️ 매립지가 70% 이상 찼어요. 처리 시설을 미리 준비해 주세요.', filling?.i);
     S.waste = state;
-    this.refresh();
+    this.refresh(layout);
     return state.last;
   },
 

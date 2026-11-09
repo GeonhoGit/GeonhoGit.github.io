@@ -1,7 +1,7 @@
 // ===== 도시 운영 화면 =====
 const MANAGEMENT = {
   tab: 'quests',
-  tabs: ['quests', 'events', 'policies', 'development', 'challenge'],
+  tabs: ['quests', 'events', 'policies', 'development', 'challenge', 'achievements'],
   _signature: '',
 
   text(value) {
@@ -69,7 +69,8 @@ const MANAGEMENT = {
     if ($('modal-management').classList.contains('hidden')) return;
     const development = typeof DEVELOPMENT !== 'undefined' ? DEVELOPMENT.view() : { specializations: [], facilities: [], scenario: null };
     const data = this.tab === 'quests' ? civic.quests : this.tab === 'events' ? civic.event
-      : this.tab === 'policies' ? civic.policies : this.tab === 'development' ? [development.specializations, development.facilities] : development.scenario;
+      : this.tab === 'policies' ? civic.policies : this.tab === 'development' ? [development.specializations, development.facilities]
+      : this.tab === 'achievements' ? (typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS.view() : null) : development.scenario;
     const signature = JSON.stringify([this.tab, data]);
     if (!force && signature === this._signature) return;
     this._signature = signature;
@@ -87,7 +88,9 @@ const MANAGEMENT = {
     content.innerHTML = this.tab === 'quests' ? this.quests(civic.quests)
       : this.tab === 'events' ? this.events(civic.event)
       : this.tab === 'policies' ? this.policies(civic.policies)
-      : this.tab === 'development' ? this.development(development) : this.challenge(development.scenario);
+      : this.tab === 'development' ? this.development(development)
+      : this.tab === 'achievements' ? this.achievements(typeof ACHIEVEMENTS !== 'undefined' ? ACHIEVEMENTS.view() : null)
+      : this.challenge(development.scenario);
     if (active) {
       const replacement = focusAction && content.querySelector(`[data-action="${focusAction}"][data-id="${focusId}"]`);
       if (replacement && !replacement.disabled) replacement.focus();
@@ -129,6 +132,16 @@ const MANAGEMENT = {
         const d = typeof DEFS !== 'undefined' ? DEFS[f.key] : null;
         return `<article class="facility-row"><div><h4>${d?.icon || '▥'} ${this.text(f.name)}</h4><p>기본 해금: 인구 ${fmt(f.unlock)}명</p><p class="management-muted">${this.text(f.unlocked ? d?.desc || '건설할 수 있습니다.' : f.reason)}</p>${d ? `<p class="management-cost">건설 ${this.money(d.cost)} · 월 유지 ${this.money(d.upkeep)}${d.monthlyIncome ? ` · 최대 월 수입 ${this.money(d.monthlyIncome)} (고용 100%, 수입 조정 전)` : ''}</p>` : ''}</div>${this.button('build', f.key, f.unlocked ? '건설 도구 선택' : '미해금', !f.unlocked)}</article>`;
       }).join('') + '</div><p class="management-muted">지은 시설은 살펴보기로 선택하면 확장할 수 있습니다. 확장 효과와 추가 유지비를 확인한 뒤 결정하세요.</p>';
+  },
+  achievements(view) {
+    if (!view) return this.empty('업적을 불러올 수 없어요', '게임 파일이 모두 있는지 확인해 주세요.');
+    const card = a => `<article class="achievement${a.unlocked ? ' is-unlocked' : a.everywhere ? ' is-elsewhere' : ''}">
+      <span class="achievement-icon" aria-hidden="true">${a.unlocked || a.everywhere ? a.icon : '🔒'}</span>
+      <div><h3>${this.text(a.title)}</h3><p>${this.text(a.description)}</p>
+      <span class="achievement-state">${a.unlocked ? `이 도시 · ${a.year}년 ${a.month}월 달성` : a.everywhere ? '다른 도시에서 달성' : '아직 달성하지 않음'}</span></div></article>`;
+    return `<p class="management-lead">도시를 키우며 특별한 순간을 모아 보세요. 업적은 매달 말에 확인합니다.
+      <b>이 도시 ${view.city} / ${view.total}</b> · 모든 도시 ${view.ever} / ${view.total}${view.streak ? ` · 연속 흑자 ${view.streak}개월` : ''}</p>
+      <div class="achievement-grid">${view.items.map(card).join('')}</div>`;
   },
   challenge(scenario) {
     if (!scenario) return this.empty('자유롭게 자라는 도시', '이 도시는 기간 제한이 없는 자유 모드입니다. 새로운 도전을 원한다면 도시를 저장한 뒤 메뉴에서 재건·섬·오염 시나리오를 시작해 보세요.');

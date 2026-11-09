@@ -65,7 +65,24 @@ const NEWS = {
   _problems() {
     const st = S.stats || {}, candidates = [];
     const add = (kind, priority, title, advice, i, level = 'warn') => candidates.push({ kind, priority, title, advice, ...this._position(i), level });
-    const fire = S.tiles.findIndex(t => t.fire > 0);
+    // 같은 월의 기사 후보들이 공유하는 지도 정보는 한 번의 순회로 모은다.
+    let fire = -1, landfill = -1, preparing = -1;
+    let homeCount = 0, pollution = 0, crime = 0, pollutedHome = -1, unsafeHome = -1;
+    for (let i = 0; i < S.tiles.length; i++) {
+      const t = S.tiles[i];
+      if (fire < 0 && t.fire > 0) fire = i;
+      if (t.type === 'landfill' && t.root === i) {
+        const capacity = DEFS.landfill.wasteCapacity;
+        if (landfill < 0 && t.landfillStored >= capacity * .9) landfill = i;
+        if (preparing < 0 && t.landfillStored >= capacity * .7) preparing = i;
+      }
+      if (t.type !== 'res' || !(t.level > 0)) continue;
+      homeCount++;
+      pollution += t.poll;
+      crime += t.crime;
+      if (t.poll > 0 && (pollutedHome < 0 || t.poll > S.tiles[pollutedHome].poll)) pollutedHome = i;
+      if (t.crime > 0 && (unsafeHome < 0 || t.crime > S.tiles[unsafeHome].crime)) unsafeHome = i;
+    }
     if (fire >= 0) add('fire', 99, '화재 현장 대응 이어져', '현장을 살펴보고 도로와 소방서의 대응 범위를 확인하세요.', fire, 'bad');
     const disaster = S.disasters?.lastEvent;
     if (disaster && disaster.year === S.year && disaster.month === S.month) {
@@ -85,19 +102,12 @@ const NEWS = {
     if (S.money < 0 || S.budget && S.budget.expense > S.budget.income) add('deficit', 85, '재정 적자에 예산 점검 필요', '예산에서 큰 지출과 실제 고용을 확인하고 세율·시설 지출을 조정하세요.');
     const waste = S.waste?.last;
     if ((waste?.generated ?? waste?.total) > 0 && (waste.currentRate ?? waste.rate) < .8)
-      add('garbage', 84, '쓰레기 수거 대책 요구 커져', '이번 달 발생한 쓰레기를 수거할 수 있도록 같은 도로망에 처리 시설을 연결하세요.', this._worst('garbage'));
-    const landfillAt = ratio => S.tiles.findIndex((t, i) => t.type === 'landfill' && t.root === i
-      && t.landfillStored >= DEFS.landfill.wasteCapacity * ratio);
-    const landfill = landfillAt(.9);
+      add('garbage', 84, '쓰레기 수거 대책 요구 커져', '이번 달 발생한 쓰레기를 수거할 수 있도록 같은 도로망에 처리 시설을 연결하세요.', this._worstGarbage());
     if (landfill >= 0) add('landfill', 83, '매립지 용량 90% 넘어, 포화 대비 시급', '재활용·소각 처리량을 늘리거나 새 매립지를 준비하세요.', landfill);
-    else {
-      const preparing = landfillAt(.7);
-      if (preparing >= 0) add('landfill70', 82, '매립지 용량 70% 넘어, 다음 수거 대책 준비', '같은 도로망에 재활용·소각 시설이나 새 매립지를 미리 준비하세요.', preparing);
-    }
+    else if (preparing >= 0) add('landfill70', 82, '매립지 용량 70% 넘어, 다음 수거 대책 준비', '같은 도로망에 재활용·소각 시설이나 새 매립지를 미리 준비하세요.', preparing);
     if ((S.traffic?.avgCongestion || 0) >= 60 || (S.traffic?.congestedRoads || 0) > 10) add('traffic', 76, '출근길 혼잡 개선 목소리', '큰길·우회 도로·대중교통으로 출근길 통행을 분산하세요.', S.traffic?.worstRoad);
-    const homes = S.tiles.filter(t => t.type === 'res' && t.level > 0);
-    if (homes.length && homes.reduce((sum, t) => sum + t.poll, 0) / homes.length >= 30) add('pollution', 74, '공장 매연 민원 증가', '오염 시설을 주거지에서 떨어뜨리거나 공원을 지어 보세요.', this._worst('poll', true));
-    if (homes.length && homes.reduce((sum, t) => sum + t.crime, 0) / homes.length >= 40) add('crime', 73, '생활 안전 대책에 관심', '경찰서의 전력·도로 연결과 주거지 대응 범위를 확인하세요.', this._worst('crime', true));
+    if (homeCount && pollution / homeCount >= 30) add('pollution', 74, '공장 매연 민원 증가', '오염 시설을 주거지에서 떨어뜨리거나 공원을 지어 보세요.', pollutedHome);
+    if (homeCount && crime / homeCount >= 40) add('crime', 73, '생활 안전 대책에 관심', '경찰서의 전력·도로 연결과 주거지 대응 범위를 확인하세요.', unsafeHome);
     if ((st.workers || 0) > 0 && st.unemployment >= .1) add('unemployment', 65, '시민 일자리 연결 과제', '일자리를 늘리고 주거지에서 출근할 수 있는 도로망인지 확인하세요.');
     if ((st.comJobs || 0) + (st.indJobs || 0) > (st.workers || 0)) add('workerShortage', 64, '상점·공장 인력 확보 필요', '주거지가 성장해야 실제 고용과 사업장 수입이 늘어납니다.');
     for (const [key, label, priority] of [['res', '주거', 53], ['com', '상업', 52], ['ind', '공업', 51]]) {
@@ -106,12 +116,11 @@ const NEWS = {
     return candidates;
   },
 
-  _worst(key, residential = false) {
+  _worstGarbage() {
     let best = -1, amount = 0;
     for (let i = 0; i < S.tiles.length; i++) {
       const t = S.tiles[i];
-      if (residential && (t.type !== 'res' || t.level <= 0)) continue;
-      if ((t[key] || 0) > amount) { amount = t[key]; best = i; }
+      if ((t.garbage || 0) > amount) { amount = t.garbage; best = i; }
     }
     return best;
   },

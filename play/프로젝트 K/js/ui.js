@@ -26,6 +26,7 @@ const TOOL_SHORT = {
 const UI = {
   tool: 'inspect',
   speed: 1,
+  playing: false,
   difficulty: 'normal',
   timer: 0,
   toolCategory: 'infra',
@@ -57,7 +58,6 @@ const UI = {
     if (typeof MANAGEMENT !== 'undefined') MANAGEMENT.init();
     // 속도
     $('speed').querySelectorAll('button').forEach(b => b.onclick = () => this.setSpeed(+b.dataset.speed));
-    this.initHistory();
     this.initFinance();
     this.initNews();
     this.initDisasters();
@@ -137,6 +137,7 @@ const UI = {
   },
 
   startPlaying() {
+    this.playing = true;
     for (const entry of this._modalStack) { $(entry.id).classList.add('hidden'); $(entry.id).inert = false; }
     $('modal-start').classList.add('hidden');
     this._modalStack = [];
@@ -602,14 +603,16 @@ const UI = {
     const category = TOOL_CATEGORIES.find(([, , keys]) => keys.includes(k));
     const locked = S && !isUnlocked(k);
     $('active-tool-group').textContent = (hovering && k !== this.tool ? '' : '선택한 도구 · ') + (category ? category[1] : '');
-    $('active-tool-name').textContent = d.name + (TOOL_KEYS[k] ? `  [${TOOL_KEYS[k]}]` : '');
+    const touchUI = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    const cancelHint = touchUI ? '두 손가락으로 지도 이동' : '우클릭 취소';
+    $('active-tool-name').textContent = d.name + (TOOL_KEYS[k] && !touchUI ? `  [${TOOL_KEYS[k]}]` : '');
     $('active-tool-desc').textContent = d.desc;
     const cost = $('active-tool-cost');
     const treeCost = typeof treeRemovalCost === 'function' ? treeRemovalCost() : 3;
     cost.textContent = locked ? `🔒 ${this.toolLockReason(k)}`
       : k === 'inspect' ? '건물을 눌러 정보 보기 · 드래그로 이동'
-      : k === 'bulldoze' ? `건물·도로 ₩${fmt(d.cost)} · 나무 칸당 ₩${fmt(treeCost)} · 우클릭 취소`
-      : `기본 ₩${fmt(d.cost)}${d.drag ? ' (칸당)' : ''} · 나무 정리 칸당 ₩${fmt(treeCost)} 별도 · 월 유지비 ₩${d.upkeep.toLocaleString('ko-KR')} · 우클릭 취소`;
+      : k === 'bulldoze' ? `건물·도로 ₩${fmt(d.cost)} · 나무 칸당 ₩${fmt(treeCost)} · ${cancelHint}`
+      : `기본 ₩${fmt(d.cost)}${d.drag ? ' (칸당)' : ''} · 나무 정리 칸당 ₩${fmt(treeCost)} 별도 · 월 유지비 ₩${d.upkeep.toLocaleString('ko-KR')} · ${cancelHint}`;
     cost.classList.toggle('no', !!locked);
     card.classList.remove('hidden');
     document.body?.classList?.add('hint-open');
@@ -726,39 +729,8 @@ const UI = {
     $('speed-state').textContent = s === 0 ? '일시정지' : `${s}× 진행 중`;
   },
 
-  initHistory() {
-    for (const action of ['undo', 'redo']) {
-      const button = $('btn-' + action);
-      if (!button) continue;
-      button.onclick = () => {
-        if (!S || button.disabled || typeof UNDO === 'undefined' || this.hasOpenModal()) return;
-        UNDO[action]();
-        this.updateHistory();
-      };
-    }
-    this.updateHistory();
-  },
-  updateHistory() {
-    const state = S && typeof UNDO !== 'undefined' ? UNDO.view() : null;
-    for (const [action, key, label, shortcut] of [
-      ['undo', 'Undo', '되돌리기', 'Ctrl+Z / ⌘Z'],
-      ['redo', 'Redo', '다시 실행', 'Ctrl+Y / ⌘⇧Z'],
-    ]) {
-      const button = $('btn-' + action);
-      if (!button) continue;
-      const available = !!state?.['can' + key];
-      const detail = state ? available ? state[action + 'Label'] : state[action + 'Reason']
-        : S ? '작업 기록을 사용할 수 없습니다.' : '도시를 시작하세요.';
-      button.disabled = !available;
-      button.setAttribute('aria-disabled', !available);
-      button.title = `${label} (${shortcut})${detail ? ' · ' + detail : ''}`;
-      button.setAttribute('aria-description', button.title);
-    }
-  },
-
   // 주기적 갱신
   refresh() {
-    this.updateHistory();
     if (!S) return;
     const st = S.stats;
     if (!$('city-name').querySelector('input')) $('city-name').textContent = S.name;

@@ -54,7 +54,7 @@ const SAVES = {
   save(id = this.lastSlot) {
     try {
       const key = this._key(id), data = { ...serializeCity(), savedAt: Date.now() };
-      parseCity(data);
+      validateCityRecord(data);
       localStorage.setItem(key, JSON.stringify(data));
       this._cache.delete(id); this._remember(id);
       return { ok: true };
